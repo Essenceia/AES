@@ -5,7 +5,7 @@
 // 
 // Create Date:    20:48:55 10/25/2021 
 // Design Name: 
-// Module Name:    ase_top 
+// Module Name:    aes_top 
 // Project Name: 
 // Target Devices: 
 // Tool versions: 
@@ -18,7 +18,7 @@
 // Additional Comments: 
 //
 //////////////////////////////////////////////////////////////////////////////////
-module ase_enc_top(
+module aes_enc_top(
 	 input clk,
 	 input nreset,
 	 
