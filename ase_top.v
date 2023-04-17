@@ -22,12 +22,12 @@ module ase_enc_top(
 	 input clk,
 	 input nreset,
 	 
-    output [127:0] res_o,  // result
+         output [127:0] res_o,  // result
 	 output         res_v_o,// valid result
 	 input          data_v_i,
-    input [127:0]  data_i,
+         input [127:0]  data_i,
 	 input [127:0]  key_i
-    );
+         );
 
 	reg  [127:0] data_q;
 	wire [127:0] data_next;
@@ -36,8 +36,8 @@ module ase_enc_top(
 	reg  [3:0] fsm_q;
 	wire [3:0] fsm_next;
 	wire       fsm_en;
-	wire finished_v;
-	wire last_iter_v;
+	wire       finished_v;
+	wire       last_iter_v;
 	
 	wire       unused_fsm_sum_msb;
 	
@@ -92,7 +92,7 @@ module ase_enc_top(
 				.data_i( data_q[(sb_i*8)+7:(sb_i*8)]),
 				//.data_i( 8'h0),
 				.data_o( sub_bytes[(sb_i*8)+7:(sb_i*8)])
-			);
+		        	);
 		end
 	endgenerate
 	
@@ -152,7 +152,7 @@ module ase_enc_top(
 		 .key_rcon_i(key_rcon_current),
 		 .key_next_o(key_next),
 		 .key_rcon_o(key_rcon_next)
-    );
+                 );
 	 always @(posedge clk) begin
 		 if ( fsm_en ) begin : key_dff
 			key_q      <= key_next;
