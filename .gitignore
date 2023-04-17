@@ -1,0 +1,13 @@
+*
+!*.md
+!*.v
+!blake2_test.vhd
+!.gitignore
+!rfc7693.txt
+!*.c
+!*.sh
+!*.h
+!makefile
+!test_vector
+!*_data_i.txt
+!*_hash_o.txt
