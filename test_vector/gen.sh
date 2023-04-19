@@ -4,7 +4,7 @@
 # Input and aes output is stored to file.
 
 # number of tests to be generated
-TEST_NUM=10
+TEST_NUM=1
 
 # file names
 IN_FILE="data_i.txt"
@@ -17,10 +17,11 @@ SIZE=128
 
 function gen_rand_hex {
 
-local chars='ABCDEF0123456789'
+local chars='01'
+#local chars='ABCDEF0123456789'
 
 local str=""
-for ((i = 0; i < $1 ; ++i)); do
+for ((i = 0; i < $1 ; i++)); do
     str+=${chars:RANDOM%${#chars}:1}
     # alternatively, str=$str${chars:RANDOM%${#chars}:1} also possible
 done
@@ -41,17 +42,20 @@ rm ${OUT_FILE}
 rm ${KEY_FILE}
 for((i = 0; i < $TEST_NUM; i++)); do  
 	# generate input file
-	in=$(gen_rand_hex "32")
+	in=$(gen_rand_hex "128")
 	#generate key
-	key=$(gen_rand_hex "32")
+	key=$(gen_rand_hex "128")
 	# generate aes output
-	echo ${in} | openssl aes128 -a -e -K "${key}" -iv ${zero} -out ${tmp}
+	echo ${in} | openssl aes128 -inform der -outform der -a -e -K ${key} -iv ${zero} -out ${tmp}
 	#log
 	echo "in $in key $key out $tmp"
 	# write to file, use bc to convert hex to binary 
 	var=$(cat $tmp)
-	echo 'ibase=16; obase=2; $var' | BC_LINE_LENGTH=0 bc >> ${OUT_FILE}
-	echo 'ibase=16; obase=2; '${in} | BC_LINE_LENGTH=0 bc >> ${IN_FILE}
+	echo "result : '$var'"
+	echo $(cat $tmp | xxd -b | awk -F " " '{print $2 $3 $4 $5 $6 }' | tr -d "\n") >> ${OUT_FILE}
+	#echo $(echo $in | xxd -b | awk -F " " '{print $2 $3 $4 $5 $6 }' | tr -d "\n") >> ${OUT_FILE}
+	#echo $(echo $key | xxd -b | awk -F " " '{print $2 $3 $4 $5 $6 }' | tr -d "\n") >> ${OUT_FILE}
+	echo 'ibase=16; obase=2; '${in}  | BC_LINE_LENGTH=0 bc >> ${IN_FILE}
 	echo 'ibase=16; obase=2; '${key} | BC_LINE_LENGTH=0 bc >> ${KEY_FILE}
 done
 
