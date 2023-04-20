@@ -114,11 +114,15 @@ module aes_enc(
 		end
 	endgenerate
 		
-	assign shift_row_row[3]  =  sub_bytes_row[3]; // row0 no shift
-	assign shift_row_row[2]  =  { sub_bytes_row[2][23:16], sub_bytes_row[2][15:8],  sub_bytes_row[2][7:0] ,  sub_bytes_row[2][31:24] }; // row1 0,1,2,3 -> 1,2,3,0
-	assign shift_row_row[1]  =  { sub_bytes_row[1][15:8],  sub_bytes_row[1][7:0],   sub_bytes_row[1][31:24], sub_bytes_row[1][23:16] }; // row2 0,1,2,3 -> 2,3,0,1
-	assign shift_row_row[0]  =  { sub_bytes_row[0][7:0] ,  sub_bytes_row[0][31:24], sub_bytes_row[0][23:16], sub_bytes_row[0][15:8] };  // row3 0,1,2,3 -> 3,0,1,2 : d,c,b,a -> a,d,c
+	//assign shift_row_row[3]  =  sub_bytes_row[3]; // row0 no shift
+	//assign shift_row_row[2]  =  { sub_bytes_row[2][23:16], sub_bytes_row[2][15:8],  sub_bytes_row[2][7:0] ,  sub_bytes_row[2][31:24] }; // row1 0,1,2,3 -> 1,2,3,0
+	//assign shift_row_row[1]  =  { sub_bytes_row[1][15:8],  sub_bytes_row[1][7:0],   sub_bytes_row[1][31:24], sub_bytes_row[1][23:16] }; // row2 0,1,2,3 -> 2,3,0,1
+	//assign shift_row_row[0]  =  { sub_bytes_row[0][7:0] ,  sub_bytes_row[0][31:24], sub_bytes_row[0][23:16], sub_bytes_row[0][15:8] };  // row3 0,1,2,3 -> 3,0,1,2 : d,c,b,a -> a,d,c
 
+	assign shift_row_row[0]  =  sub_bytes_row[0]; // row0 no shift
+	assign shift_row_row[3]  =  { sub_bytes_row[3][23:16], sub_bytes_row[3][15:8],  sub_bytes_row[3][7:0] ,  sub_bytes_row[3][31:24] }; // row1 0,1,2,3 -> 1,2,3,0
+	assign shift_row_row[2]  =  { sub_bytes_row[2][15:8],  sub_bytes_row[2][7:0],   sub_bytes_row[2][31:24], sub_bytes_row[2][23:16] }; // row2 0,1,2,3 -> 2,3,0,1
+	assign shift_row_row[1]  =  { sub_bytes_row[1][7:0] ,  sub_bytes_row[1][31:24], sub_bytes_row[1][23:16], sub_bytes_row[1][15:8] };  // row3 0,1,2,3 -> 3,0,1,2 : d,c,b,a -> a,d,cs
 	// MixColumns
 	genvar mc_c; // collumn [ 3, 2, 1, 0 ]
 	generate 
