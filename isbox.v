@@ -1,7 +1,4 @@
-// ^    : +
-// &    : x
-// ~(^) : #
-
+// Invert sbox
 module aes_inv_sbox(
     input  [7:0] data_i,
     output [7:0] data_o
@@ -18,23 +15,23 @@ module aes_inv_sbox(
 	assign u = data_i;
 	
 	// aes sbox on a byte
-	assign t[23] =  u[0]  ^ u[3];
+	assign t[23] =   u[0]  ^ u[3];
 	assign t[22] = ~(u[1]  ^ u[3]);
 	assign t[2]  = ~(u[0]  ^ u[1]);
-	assign t[1]  =  u[3]  ^ u[4];
+	assign t[1]  =   u[3]  ^ u[4];
 	assign t[24] = ~(u[4]  ^ u[7]);
-	assign r[5]  =  u[6]  ^ u[7];
+	assign r[5]  =   u[6]  ^ u[7];
 	assign t[8]  = ~(u[1]  ^ t[23]);
-	assign t[19] =  t[22] ^ r[5];
+	assign t[19] =   t[22] ^ r[5];
 	assign t[9]  = ~(u[7]  ^ t[1]);
-	assign t[10] =  t[2]  ^ t[24];
-	assign t[13] =  t[2]  ^ r[5];
-	assign t[3]  =  t[1]  ^ r[5];
+	assign t[10] =   t[2]  ^ t[24];
+	assign t[13] =   t[2]  ^ r[5];
+	assign t[3]  =   t[1]  ^ r[5];
 	assign t[25] = ~(u[2]  ^ t[1]);
-	assign r[13] =  u[1]  ^ u[6];
+	assign r[13] =   u[1]  ^ u[6];
 	assign t[17] = ~(u[2]  ^ t[19]);
-	assign t[20] =  t[24] ^ r[13];
-	assign t[4]  =  u[4]  ^ t[8];
+	assign t[20] =   t[24] ^ r[13];
+	assign t[4]  =   u[4]  ^ t[8];
 	assign r[17] = ~(u[2]  ^ u[5]);
 	assign r[18] = ~(u[5]  ^ u[6]);
 	assign r[19] = ~(u[2]  ^ u[4]);
