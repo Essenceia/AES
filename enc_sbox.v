@@ -1,23 +1,4 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date:    04:47:24 10/26/2021 
-// Design Name: 
-// Module Name:    aes_sbox 
-// Project Name: 
-// Target Devices: 
-// Tool versions: 
-// Description: 
-//
-// Dependencies: 
-//
-// Revision: 
-// Revision 0.01 - File Created
-// Additional Comments: 
-//
-//////////////////////////////////////////////////////////////////////////////////
 module aes_sbox(
     input  [7:0] data_i,
     output [7:0] data_o
@@ -156,5 +137,4 @@ module aes_sbox(
 	
 	// output 
 	assign data_o = s;
-
 endmodule

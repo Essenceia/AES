@@ -1,23 +1,5 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date:    20:48:55 10/25/2021 
-// Design Name: 
-// Module Name:    aes_top 
-// Project Name: 
-// Target Devices: 
-// Tool versions: 
-// Description: 
-//
-// Dependencies: 
-//
-// Revision: 
-// Revision 0.01 - File Created
-// Additional Comments: 
-//
-//////////////////////////////////////////////////////////////////////////////////
+
 module aes_enc(
 	 input clk,
 	 input nreset,
@@ -31,7 +13,6 @@ module aes_enc(
 
 	reg  [127:0] data_q;
 	wire [127:0] data_next;
-	// wire [127:0] data_current;
 	
 	reg  [3:0] fsm_q;
 	wire [3:0] fsm_next;
@@ -83,7 +64,6 @@ module aes_enc(
 		 data_q <= data_next;
 	end 
 	
-	
 	// Sbox
 	genvar sb_i;
 	generate 
@@ -97,16 +77,16 @@ module aes_enc(
 	endgenerate
 	
 	// ShiftRows : rows : [ 3,
-	//								2,
-	//								1,
-	//								0 ]
+	//			2,
+	//			1,
+	//			0 ]
 	genvar sr_r;
 	generate 
 		for (sr_r=0; sr_r<4; sr_r=sr_r+1) begin : loop_gen_sr_r
 			assign sub_bytes_row[sr_r] = { sub_bytes[3*32+8*sr_r+7:3*32+8*sr_r],
-													 sub_bytes[2*32+8*sr_r+7:2*32+8*sr_r],
-													 sub_bytes[32+8*sr_r+7:32+8*sr_r],
-													 sub_bytes[8*sr_r+7:8*sr_r] };
+						       sub_bytes[2*32+8*sr_r+7:2*32+8*sr_r],
+						       sub_bytes[32+8*sr_r+7:32+8*sr_r],
+						       sub_bytes[8*sr_r+7:8*sr_r] };
 			assign { shift_row[3*32+8*sr_r+7:3*32+8*sr_r],
 						shift_row[2*32+8*sr_r+7:2*32+8*sr_r],
 						shift_row[1*32+8*sr_r+7:1*32+8*sr_r],
@@ -114,11 +94,6 @@ module aes_enc(
 		end
 	endgenerate
 		
-	//assign shift_row_row[3]  =  sub_bytes_row[3]; // row0 no shift
-	//assign shift_row_row[2]  =  { sub_bytes_row[2][23:16], sub_bytes_row[2][15:8],  sub_bytes_row[2][7:0] ,  sub_bytes_row[2][31:24] }; // row1 0,1,2,3 -> 1,2,3,0
-	//assign shift_row_row[1]  =  { sub_bytes_row[1][15:8],  sub_bytes_row[1][7:0],   sub_bytes_row[1][31:24], sub_bytes_row[1][23:16] }; // row2 0,1,2,3 -> 2,3,0,1
-	//assign shift_row_row[0]  =  { sub_bytes_row[0][7:0] ,  sub_bytes_row[0][31:24], sub_bytes_row[0][23:16], sub_bytes_row[0][15:8] };  // row3 0,1,2,3 -> 3,0,1,2 : d,c,b,a -> a,d,c
-
 	assign shift_row_row[0]  =  sub_bytes_row[0]; // row0 no shift
 	assign shift_row_row[3]  =  { sub_bytes_row[3][23:16], sub_bytes_row[3][15:8],  sub_bytes_row[3][7:0] ,  sub_bytes_row[3][31:24] }; // row1 0,1,2,3 -> 1,2,3,0
 	assign shift_row_row[2]  =  { sub_bytes_row[2][15:8],  sub_bytes_row[2][7:0],   sub_bytes_row[2][31:24], sub_bytes_row[2][23:16] }; // row2 0,1,2,3 -> 2,3,0,1
@@ -127,17 +102,11 @@ module aes_enc(
 	genvar mc_c; // collumn [ 3, 2, 1, 0 ]
 	generate 
 		for (mc_c=0; mc_c<4; mc_c=mc_c+1) begin : loop_gen_mc_c
-			// assign shift_row_col[mc_c] = { shift_row[3*32+8*mc_c+7:3*32+8*mc_c],shift_row[2*32+8*mc_c+7:2*32+8*mc_c],shift_row[32+8*mc_c+7:32+8*mc_c],shift_row[8*mc_c+7:8*mc_c] };
 			
 			aes_mixw mixw ( 
 				.w_i(    shift_row[  mc_c*32+31:mc_c*32] ), 
 				.mixw_o( mix_columns[mc_c*32+31:mc_c*32])
 			);
-			
-//			assign { mix_columns[3*32+8*mc_c+7:3*32+8*mc_c],
-//						mix_columns[2*32+8*mc_c+7:2*32+8*mc_c],
-//						mix_columns[32+8*mc_c+7:32+8*mc_c],
-//						mix_columns[8*mc_c+7:8*mc_c] } = mix_columns_col[mc_c];
 		end
 	endgenerate
 	
@@ -163,7 +132,6 @@ module aes_enc(
 			key_rcon_q <= key_rcon_next;
 		 end
 	 end
-	
 	
 	// output
 	assign res_v_o = finished_v; // aes is on the 11 th round

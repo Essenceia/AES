@@ -17,10 +17,6 @@ module aes_key_first_col(
 	wire        rcon_overflow;
 	
 	// rotation, shift left by 8b, eg : [l:h] abcd -> bcda 
-	//assign key_rot[31:24] = key_w3_i[23:16];
-	//assign key_rot[23:16] = key_w3_i[15:8];
-	//assign key_rot[15:8]  = key_w3_i[7:0];
-	//assign key_rot[7:0]   = key_w3_i[31:24];
 	assign key_rot[31:24] = key_w3_i[7:0];
 	assign key_rot[23:16] = key_w3_i[31:24];
 	assign key_rot[15:8]  = key_w3_i[23:16];
@@ -40,11 +36,6 @@ module aes_key_first_col(
 	//{ 0000_0001, 0000_0010,  0000_0100, 0000_1000,
 	//  0001_0000, 0010_0000,  0100_0000, 1000_0000,
 	//  0001_1011, 0011_0110 }
-//	generate
-//		for(i=0; i<4; i=i+1) begin : loop_gen_key_xor
-//			assign key_xor[(i*8)+7:(i*8)] = key_rcon_i ^ key_sbox[(i*8)+7:(i*8)];
-//		end
-//	endgenerate
 	// only xor the msb Byte with the rcon
 	assign key_xor         = { key_sbox[31:8], key_sbox[7:0] ^ key_rcon_i };
 	assign rcon_overflow   = key_rcon_i[7];
@@ -52,7 +43,6 @@ module aes_key_first_col(
 	assign debug_rcon_next = ( {8{ rcon_overflow}} & 8'h1b ) 
 			       | ( {8{~rcon_overflow}} & rcon_next);
 			
-	
 	// output
 	assign key_w3_next_o   = key_xor;
 	assign key_rcon_o[7:0] = debug_rcon_next[7:0];
@@ -87,12 +77,6 @@ module aes_key_shedualing(
 		.key_w3_next_o(key_col_w3),
 		.key_rcon_o(key_rcon_next)
 	);
-//	assign key_col_next[3] = key_col_w3;
-//	// colon 2, 1, 0
-//	assign key_col_next[2] = key_col[2] ^ key_col_next[3];
-//	assign key_col_next[1] = key_col[1] ^ key_col_next[2];
-//	assign key_col_next[0] = key_col[0] ^ key_col_next[1];
-//	
 	assign key_col_next[0] = key_col[0] ^ key_col_w3;
 	// colon 2, 1, 0
 	assign key_col_next[1] = key_col_next[0] ^ key_col[1];
@@ -103,5 +87,3 @@ module aes_key_shedualing(
 	assign key_rcon_o = key_rcon_next;
 
 endmodule // aes_key_shedualing
-
-

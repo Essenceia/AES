@@ -1,29 +1,8 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date:    06:44:26 10/26/2021 
-// Design Name: 
-// Module Name:    aes_mix_columns 
-// Project Name: 
-// Target Devices: 
-// Tool versions: 
-// Description: 
-//
-// Dependencies: 
-//
-// Revision: 
-// Revision 0.01 - File Created
-// Additional Comments: 
-//
-//////////////////////////////////////////////////////////////////////////////////
-
- //----------------------------------------------------------------
-  // Round functions with sub functions.
-  //----------------------------------------------------------------
+//----------------------------------------------------------------
+// Mix column : Galois Field Arithmetic 
+//----------------------------------------------------------------
  
-// Multiply by 2  
 module aes_gm2(
 	input  [7:0] op_i,
 	output [7:0] gm2_o
@@ -98,24 +77,3 @@ endmodule // gm2
 	assign mixw_o = {mb3, mb2, mb1, mb0};
  
  endmodule // mixw
-
-
-  
-//module aes_mix_columns(
-//    input  [31 : 0] data_col_i[3:0],
-//    output [31 : 0] data_col_o[3:0]
-//    );
-	 
-//	wire [31:0] mix_columns[3:0];
-	
-	//aes_mixw mixw3( .w_i(data_i[127:96]), .mixw_o(mix_columns[127:96]));
-	//aes_mixw mixw2( .w_i(data_i[95:64]),  .mixw_o(mix_columns[95:64]));
-	//aes_mixw mixw1( .w_i(data_i[63:32]),  .mixw_o(mix_columns[63:32]));
-	//aes_mixw mixw0( .w_i(data_i[31:0]),   .mixw_o(mix_columns[31:0]));
-
-//	aes_mixw mixw3( .w_i(data_col_i[3]), .mixw_o(data_col_o[3]));
-//	aes_mixw mixw2( .w_i(data_col_i[2]), .mixw_o(data_col_o[2]));
-//	aes_mixw mixw1( .w_i(data_col_i[1]), .mixw_o(data_col_o[1]));
-//	aes_mixw mixw0( .w_i(data_col_i[0]), .mixw_o(data_col_o[0]));
-	
-//endmodule
