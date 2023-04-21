@@ -6,8 +6,8 @@ FLAGS = -Wall -Wextra -Wconversion -Wshadow -Wundef -fno-common  -Wno-unused-par
 CC = cc $(if $(debug),-DDEBUG -g)
 LD = cc
 
-aes : main.o file.o gmult.o aes.o
-	$(LD) -o aes -g main.o file.o gmult.o aes.o
+aes : main.o file.o gmult.o aes.o rand.o
+	$(LD) -o aes -g main.o file.o gmult.o aes.o rand.o
 
 main.o : main.c
 	$(CC) -c main.c $(FLAGS)
@@ -20,6 +20,9 @@ gmult.o : gmult.c gmult.h
 
 aes.o : aes.c aes.h
 	$(CC) -c aes.c $(FLAGS)
+
+rand.o : rand.c rand.h
+	$(CC) -c rand.c $(FLAGS)
 
 clean :
 	rm -f aes *.o
