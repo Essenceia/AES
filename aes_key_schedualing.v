@@ -3,9 +3,9 @@
 // module to calcule the first column of the new key
 // implements : rotation + sbox + xor 
 module aes_key_first_col(
-	input  wire [31:0] key_w0_i,
+	input  wire [31:0] key_w3_i,
 	input  wire [7:0]  key_rcon_i,
-	output wire [31:0] key_w0_next_o,
+	output wire [31:0] key_w3_next_o,
 	output wire [7:0]  key_rcon_o
 	);
 	
@@ -16,11 +16,15 @@ module aes_key_first_col(
 	wire [7:0]  debug_rcon_next;
 	wire        rcon_overflow;
 	
-	// rotation, shift left by 8b, eg : 1d2c3a4f ->  2c3a4f1d
-	assign key_rot[31:24] = key_w0_i[23:16];
-	assign key_rot[23:16] = key_w0_i[15:8];
-	assign key_rot[15:8]  = key_w0_i[7:0];
-	assign key_rot[7:0]   = key_w0_i[31:24];
+	// rotation, shift left by 8b, eg : [l:h] abcd -> bcda 
+	//assign key_rot[31:24] = key_w3_i[23:16];
+	//assign key_rot[23:16] = key_w3_i[15:8];
+	//assign key_rot[15:8]  = key_w3_i[7:0];
+	//assign key_rot[7:0]   = key_w3_i[31:24];
+	assign key_rot[31:24] = key_w3_i[7:0];
+	assign key_rot[23:16] = key_w3_i[31:24];
+	assign key_rot[15:8]  = key_w3_i[23:16];
+	assign key_rot[7:0]   = key_w3_i[15:8];
 	// sbox
 	genvar i;
 	generate
@@ -42,7 +46,7 @@ module aes_key_first_col(
 //		end
 //	endgenerate
 	// only xor the msb Byte with the rcon
-	assign key_xor         = { key_sbox[31:24] ^ key_rcon_i , key_sbox[23:0] };
+	assign key_xor         = { key_sbox[31:8], key_sbox[7:0] ^ key_rcon_i };
 	assign rcon_overflow   = key_rcon_i[7];
 	assign rcon_next[7:0]  = { key_rcon_i[6:0], 1'b0} ;
 	assign debug_rcon_next = ( {8{ rcon_overflow}} & 8'h1b ) 
@@ -50,7 +54,7 @@ module aes_key_first_col(
 			
 	
 	// output
-	assign key_w0_next_o   = key_xor;
+	assign key_w3_next_o   = key_xor;
 	assign key_rcon_o[7:0] = debug_rcon_next[7:0];
 	
 endmodule // aes_key_first_col
@@ -62,7 +66,7 @@ module aes_key_shedualing(
 	 output wire [7:0]   key_rcon_o
     );
 	wire [31:0] key_col[3:0];
-	wire [31:0] key_col_w0;
+	wire [31:0] key_col_w3;
 	wire [31:0] key_col_next[3:0];
 	wire [7:0]  key_rcon_next;
 		
@@ -77,23 +81,23 @@ module aes_key_shedualing(
 		end
 	endgenerate
 	// special treatement for the first colon ( 3rd one in our case )
-	aes_key_first_col aes_key_w0(
-		.key_w0_i(key_col[0]),
+	aes_key_first_col aes_key_w3(
+		.key_w3_i(key_col[3]),
 		.key_rcon_i(key_rcon_i),
-		.key_w0_next_o(key_col_w0),
+		.key_w3_next_o(key_col_w3),
 		.key_rcon_o(key_rcon_next)
 	);
-//	assign key_col_next[3] = key_col_w0;
+//	assign key_col_next[3] = key_col_w3;
 //	// colon 2, 1, 0
 //	assign key_col_next[2] = key_col[2] ^ key_col_next[3];
 //	assign key_col_next[1] = key_col[1] ^ key_col_next[2];
 //	assign key_col_next[0] = key_col[0] ^ key_col_next[1];
 //	
-	assign key_col_next[3] = key_col[3] ^ key_col_w0;
+	assign key_col_next[0] = key_col[0] ^ key_col_w3;
 	// colon 2, 1, 0
-	assign key_col_next[2] = key_col_next[3] ^ key_col[2];
-	assign key_col_next[1] = key_col_next[2] ^ key_col[1];
-	assign key_col_next[0] = key_col_next[1] ^ key_col[0];
+	assign key_col_next[1] = key_col_next[0] ^ key_col[1];
+	assign key_col_next[2] = key_col_next[1] ^ key_col[2];
+	assign key_col_next[3] = key_col_next[2] ^ key_col[3];
 	
 	// output new rcon
 	assign key_rcon_o = key_rcon_next;
