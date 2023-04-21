@@ -22,15 +22,18 @@
  //----------------------------------------------------------------
   // Round functions with sub functions.
   //----------------------------------------------------------------
- module aes_gm2(
+ 
+// Multiply by 2  
+module aes_gm2(
 	input  [7:0] op_i,
 	output [7:0] gm2_o
 	);
    
-   assign gm2_o = {op_i[6 : 0], 1'b0} ^ (8'h1b & {8{op_i[7]}});
+ assign gm2_o = {op_i[6 : 0], 1'b0} ^ (8'h1b & {8{op_i[7]}});
 
 endmodule // gm2
 
+// Multiply by 3
  module aes_gm3(
 	input  [7:0] op_i,
 	output [7:0] gm3_o
@@ -69,10 +72,10 @@ endmodule // gm2
 	wire [7:0] gm2_b3;
 	wire [7:0] gm3_b0;
  
-	assign b0 = w_i[31 : 24];
-	assign b1 = w_i[23 : 16];
-	assign b2 = w_i[15 : 8];
-	assign b3 = w_i[07 : 0];
+	assign b3 = w_i[31 : 24];
+	assign b2 = w_i[23 : 16];
+	assign b1 = w_i[15 : 8];
+	assign b0 = w_i[07 : 0];
 	
 	// mb0
 	aes_gm2 m0_gm2(.op_i(b0), .gm2_o(gm2_b0));
@@ -92,7 +95,7 @@ endmodule // gm2
 	assign mb2 = b0      ^ b1      ^ gm2_b2  ^ gm3_b3;
 	assign mb3 = gm3_b0  ^ b1      ^ b2      ^ gm2_b3;
 
-	assign mixw_o = {mb0, mb1, mb2, mb3};
+	assign mixw_o = {mb3, mb2, mb1, mb0};
  
  endmodule // mixw
 
