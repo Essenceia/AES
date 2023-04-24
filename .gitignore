@@ -1,9 +1,9 @@
 *
 !*.md
 !*.v
-!blake2_test.vhd
+!*.vhd
 !.gitignore
-!rfc7693.txt
+!*.pdf
 !*.c
 !*.sh
 !*.h
