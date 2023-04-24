@@ -4,7 +4,7 @@
 // 2 - Inv Sub Bytes
 // 3 - Inv Mix Columns
 // 4 - Add round key ( same )
-module ase_dec(
+module aes_dec(
 	input clk,
 	input nreset,
 	 
