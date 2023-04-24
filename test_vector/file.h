@@ -7,9 +7,9 @@
 #include <stdint.h>
 
 // number of files
-#define FILE_N 3
+#define FILE_N 4
 // file names
-#define FILE_STR (char*[FILE_N]) {"aes_enc_data_i.txt","aes_enc_key_i.txt","aes_enc_res_o.txt"}
+#define FILE_STR (char*[FILE_N]) {"aes_enc_data_i.txt","aes_enc_key_i.txt","aes_enc_res_o.txt", "aes_enc_key_o.txt"}
 
 // file pointers
 typedef struct{

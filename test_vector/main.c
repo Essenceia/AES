@@ -16,6 +16,7 @@ int main() {
 	uint8_t  in[AES_SIZE];
 	uint8_t key[AES_SIZE];
 	uint8_t out[AES_SIZE];
+	uint8_t key_out[AES_SIZE];
 	uint8_t *w; // expanded key
 	tvf_s *f;
 		
@@ -52,6 +53,7 @@ int main() {
 		write_data8(f->f[0], &in,  sizeof(in));
 		write_data8(f->f[1], &key, sizeof(key));
 		write_data8(f->f[2], &out, sizeof(out));
+		write_data8(f->f[3], &w+12, sizeof(key));
 		
 	}
 	
