@@ -25,10 +25,8 @@
 //     p_key_0[3] ^= aes_sbox(p_key_m1[0]);
 // }
 
-// module to calcule the first column of the new key
-// implements : rotation + sbox + xor 
 module aes_inv_key_first_col(
-input  wire [31:0] key_w3_i,
+	input  wire [31:0] key_w3_i,
 	input  wire [7:0]  key_rcon_i,
 	output wire [31:0] key_w3_next_o,
 	output wire [7:0]  key_rcon_o
@@ -56,12 +54,7 @@ input  wire [31:0] key_w3_i,
 			);
 		end
 	endgenerate
-	// xor, multiplied by rcon(round) :
-	//{ x01, x02, x04, x08, x10, x20, x40, x80, x1b, x36 }
-	//{ 0000_0001, 0000_0010,  0000_0100, 0000_1000,
-	//  0001_0000, 0010_0000,  0100_0000, 1000_0000,
-	//  0001_1011, 0011_0110 }
-		
+
 	assign key_xor           = { key_sbox[31:8] ,  key_rcon_i ^ key_sbox[7:0] };
 	assign rcon_is27         =  key_rcon_i[1] & key_rcon_i[0]; // XXXX_XX11
 	assign rcon_next_pq[7:0] = {  1'b0 , key_rcon_i[7:1]}; // shift right

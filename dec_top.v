@@ -123,8 +123,6 @@ module aes_dec(
 	genvar mc_c; // collumn [ 3, 2, 1, 0 ]
 	generate 
 		for (mc_c=0; mc_c<4; mc_c=mc_c+1) begin : loop_gen_mc_c
-			// assign inv_shift_row_col[mc_c] = { inv_shift_row[3*32+8*mc_c+7:3*32+8*mc_c],inv_shift_row[2*32+8*mc_c+7:2*32+8*mc_c],inv_shift_row[32+8*mc_c+7:32+8*mc_c],inv_shift_row[8*mc_c+7:8*mc_c] };
-			
 			aes_inv_mixw m_inv_mixw ( 
 				.w_i(    round_key[      mc_c*32+31:mc_c*32] ), 
 				.mixw_o( inv_mix_columns[mc_c*32+31:mc_c*32])
@@ -135,7 +133,6 @@ module aes_dec(
 	
 	// AddRoundKey : bitwise XOR
 	// bypass mix columns for last round
-	//assign round_key_next = data_v_i ? data_i :( last_iter_v ?  inv_sbox_bytes : inv_mix_columns );
 	assign round_key_next = data_v_i ? data_i : inv_sbox_bytes ;
 	assign round_key = round_key_next ^ key_current;
 	

@@ -1,9 +1,6 @@
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
  
--- Uncomment the following library declaration if using
--- arithmetic functions with Signed or Unsigned values
---USE ieee.numeric_std.ALL;
  
 ENTITY aes_key_schedualing_test IS
 END aes_key_schedualing_test;
@@ -11,7 +8,6 @@ END aes_key_schedualing_test;
 ARCHITECTURE behavior OF aes_key_schedualing_test IS 
  
     -- Component Declaration for the Unit Under Test (UUT)
- 
     COMPONENT aes_key_shedualing
     PORT(
          key_i : IN  std_logic_vector(127 downto 0);
@@ -67,7 +63,6 @@ BEGIN
       wait for clk_period / 2;	
 		key_rcon_i <= "00000001";
 		key_i    <= x"2b7e151628aed2a6abf7158809cf4f3c";
-		-- key_i <= x"09cf4f3cabf7158828aed2a62b7e1516";
 		wait for clk_period;
 		for i in 0 to 15 loop
 				key_rcon_next <= key_rcon_o;				
@@ -76,10 +71,6 @@ BEGIN
 				key_rcon_i <= key_rcon_next;
 				key_i      <= key_next;
 		 end loop;
-		
-
-      -- insert stimulus here 
-
       wait;
    end process;
 
