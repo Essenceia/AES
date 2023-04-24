@@ -349,7 +349,10 @@ void aes_key_expansion(uint8_t *key, uint8_t *w) {
 	uint8_t tmp[4];
 	uint8_t i;
 	uint8_t len = Nb*(Nr+1);
-
+	
+	#ifdef DEBUG
+	printf("expanded key lenght %d\n", len*4);
+	#endif	
 	for (i = 0; i < Nk; i++) {
 		w[4*i+0] = key[4*i+0];
 		w[4*i+1] = key[4*i+1];
