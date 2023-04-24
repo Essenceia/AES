@@ -139,17 +139,18 @@ module aes_inv_mixw(
 	gm14 m_gm14_b2(.op_i(b2), .gm14_o(gm14_b2));
 	gm14 m_gm14_b3(.op_i(b3), .gm14_o(gm14_b3));
 		
-   assign b0 = w_i[31 : 24];
-   assign b1 = w_i[23 : 16];
-   assign b2 = w_i[15 : 08];
-   assign b3 = w_i[07 : 00];
+	assign b3 = w_i[31 : 24];
+	assign b2 = w_i[23 : 16];
+	assign b1 = w_i[15 : 08];
+	assign b0 = w_i[07 : 00];
 
-   assign mb0 = gm14_b0 ^ gm11_b1 ^ gm13_b2 ^ gm09_b3;
+	assign mb0 = gm14_b0 ^ gm11_b1 ^ gm13_b2 ^ gm09_b3;
 	assign mb1 = gm09_b0 ^ gm14_b1 ^ gm11_b2 ^ gm13_b3;
 	assign mb2 = gm13_b0 ^ gm09_b1 ^ gm14_b2 ^ gm11_b3;
 	assign mb3 = gm11_b0 ^ gm13_b1 ^ gm09_b2 ^ gm14_b3;
-
-   assign mixw_o = {mb0, mb1, mb2, mb3};
+	
+	assign mixw_o = {mb3, mb2, mb1, mb0};
 endmodule
+
 
 
