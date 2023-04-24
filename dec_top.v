@@ -5,19 +5,18 @@
 // 3 - Inv Mix Columns
 // 4 - Add round key ( same )
 module ase_dec_top(
-	 input clk,
-	 input nreset,
+	input clk,
+	input nreset,
 	 
-    output [127:0] res_o,  // result
-	 output         res_v_o,// valid result
-	 input          data_v_i,
-    input [127:0]  data_i,
-	 input [127:0]  key_i
-    );
+	output [127:0] res_o,  // result
+	output         res_v_o,// valid result
+	input          data_v_i,
+	input [127:0]  data_i,
+	input [127:0]  key_i
+	);
 
 	reg  [127:0] data_q;
 	wire [127:0] data_next;
-	// wire [127:0] data_current;
 	
 	reg  [3:0] fsm_q;
 	wire [3:0] fsm_next;
@@ -72,41 +71,41 @@ module ase_dec_top(
 	end 
 	
 	// Inv ShiftRows : rows : [ 3,
-	//			                   2,
-	//								    1,
-	//								    0 ]
+	//			    2,
+	//			    1,
+	//			    0 ]
 	genvar sr_r;
 	generate 
 		for (sr_r=0; sr_r<4; sr_r=sr_r+1) begin : loop_gen_sr_r
 			assign data_q_row[sr_r] = { data_q[3*32+8*sr_r+7:3*32+8*sr_r],// 3
-													     data_q[2*32+8*sr_r+7:2*32+8*sr_r],// 2
-													     data_q[32+8*sr_r+7:32+8*sr_r],    // 1
-													     data_q[8*sr_r+7:8*sr_r] };        // 0
+						    data_q[2*32+8*sr_r+7:2*32+8*sr_r],// 2
+						    data_q[32+8*sr_r+7:32+8*sr_r],    // 1
+						    data_q[8*sr_r+7:8*sr_r] };        // 0
 														  
 			// debug
 			assign debug_inv_sbox[sr_r] = { inv_sbox_bytes[3*32+8*sr_r+7:3*32+8*sr_r],// 3
-													  inv_sbox_bytes[2*32+8*sr_r+7:2*32+8*sr_r],// 2
-													  inv_sbox_bytes[32+8*sr_r+7:32+8*sr_r],    // 1
-													  inv_sbox_bytes[8*sr_r+7:8*sr_r] };        // 0
+							inv_sbox_bytes[2*32+8*sr_r+7:2*32+8*sr_r],// 2
+							inv_sbox_bytes[32+8*sr_r+7:32+8*sr_r],    // 1
+							inv_sbox_bytes[8*sr_r+7:8*sr_r] };        // 0
 			assign debug_inv_mix_columns[sr_r] = { inv_mix_columns[3*32+8*sr_r+7:3*32+8*sr_r],// 3
-													         inv_mix_columns[2*32+8*sr_r+7:2*32+8*sr_r],// 2
-													         inv_mix_columns[32+8*sr_r+7:32+8*sr_r],    // 1
-													         inv_mix_columns[8*sr_r+7:8*sr_r] };        // 0
+							       inv_mix_columns[2*32+8*sr_r+7:2*32+8*sr_r],// 2
+							       inv_mix_columns[32+8*sr_r+7:32+8*sr_r],    // 1
+							       inv_mix_columns[8*sr_r+7:8*sr_r] };        // 0
 													 
 			assign { inv_shift_row[3*32+8*sr_r+7:3*32+8*sr_r],
-						inv_shift_row[2*32+8*sr_r+7:2*32+8*sr_r],
-						inv_shift_row[1*32+8*sr_r+7:1*32+8*sr_r],
-						inv_shift_row[0*32+8*sr_r+7:0*32+8*sr_r] } = inv_shift_row_row[sr_r];
+				 inv_shift_row[2*32+8*sr_r+7:2*32+8*sr_r],
+				 inv_shift_row[1*32+8*sr_r+7:1*32+8*sr_r],
+				 inv_shift_row[0*32+8*sr_r+7:0*32+8*sr_r] } = inv_shift_row_row[sr_r];
 		end
 	endgenerate
 	// The first row is left unchanged, the second
 	// row is shifted to the right by one byte, the third row to the right
 	// by two bytes, and the last row to the right by three bytes, all
 	// shifts being circular.	
-	assign inv_shift_row_row[3]  =  data_q_row[3]; // row0 no shift
-	assign inv_shift_row_row[2]  =  { data_q_row[2][7:0],   data_q_row[2][31:24], data_q_row[2][23:16], data_q_row[2][15:8]  }; // row1 0,1,2,3 -> 3,0,1,2
-	assign inv_shift_row_row[1]  =  { data_q_row[1][15:8],  data_q_row[1][7:0],   data_q_row[1][31:24], data_q_row[1][23:16] }; // row2 0,1,2,3 -> 2,3,0,1
-	assign inv_shift_row_row[0]  =  { data_q_row[0][23:16], data_q_row[0][15:8],  data_q_row[0][7:0],   data_q_row[0][31:24] }; // row3 0,1,2,3 -> 1,2,3,0
+	assign inv_shift_row_row[0]  =  data_q_row[0]; // row0 no shift
+	assign inv_shift_row_row[1]  = { data_q_row[1][24:16],   data_q_row[1][15:8], data_q_row[1][7:0], data_q_row[1][31:24]  }; // row1 0,1,2,3 -> 3,0,1,2
+	assign inv_shift_row_row[2]  =  { data_q_row[2][15:8],  data_q_row[2][7:0],   data_q_row[2][31:24], data_q_row[2][23:16] }; // row2 0,1,2,3 -> 2,3,0,1
+	assign inv_shift_row_row[3]  =  { data_q_row[3][7:0], data_q_row[3][31:24],  data_q_row[3][23:16],   data_q_row[3][15:8] }; // row3 0,1,2,3 -> 1,2,3,0
 
 	// Inv Sbox
 	genvar sb_i;
