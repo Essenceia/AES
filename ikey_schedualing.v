@@ -48,7 +48,7 @@ module aes_inv_key_first_col(
 	genvar i;
 	generate
 		for(i=0; i<4; i=i+1) begin : loop_gen_key_sbox
-			aes_sbox key_sbox(
+			sbox key_sbox(
 				.data_i(key_rot[(i*8)+7:(i*8)]),
 				.data_o(key_sbox[(i*8)+7:(i*8)])
 			);
@@ -65,7 +65,7 @@ module aes_inv_key_first_col(
 	assign key_rcon_o[7:0] = rcon_next[7:0];
 endmodule // aes_key_first_col
 
-module aes_inv_key_shedualing(
+module iks(
 	input  wire [127:0] key_i,
 	input  wire [7:0]   key_rcon_i,
 	output wire [127:0] key_next_o,

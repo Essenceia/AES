@@ -4,15 +4,15 @@
 // 2 - Inv Sub Bytes
 // 3 - Inv Mix Columns
 // 4 - Add round key ( same )
-module aes_dec(
+module iaes(
 	input clk,
 	input nreset,
 	 
-	output [127:0] res_o,  // result
-	output         res_v_o,// valid result
-	input          data_v_i,
-	input [127:0]  data_i,
-	input [127:0]  key_i
+	input          data_v_i, // input valid
+	input  [127:0] data_i,	 // message to decode
+	input  [127:0] key_i,    // key ( encoded version )
+	output         res_v_o,  // result valid
+	output [127:0] res_o     // result
 	);
 
 	reg  [127:0] data_q;
@@ -111,7 +111,7 @@ module aes_dec(
 	genvar sb_i;
 	generate 
 		for (sb_i=0; sb_i<16; sb_i=sb_i+1) begin : loop_gen_sb_i				
-			aes_inv_sbox isb(
+			isbox m_isbox(
 				.data_i( inv_shift_row[(sb_i*8)+7:(sb_i*8)]),
 				.data_o( inv_sbox_bytes[(sb_i*8)+7:(sb_i*8)])
 			);
@@ -123,7 +123,7 @@ module aes_dec(
 	genvar mc_c; // collumn [ 3, 2, 1, 0 ]
 	generate 
 		for (mc_c=0; mc_c<4; mc_c=mc_c+1) begin : loop_gen_mc_c
-			aes_inv_mixw m_inv_mixw ( 
+			imixw m_imixw ( 
 				.w_i(    round_key[      mc_c*32+31:mc_c*32] ), 
 				.mixw_o( inv_mix_columns[mc_c*32+31:mc_c*32])
 			);
@@ -142,7 +142,7 @@ module aes_dec(
 	assign key_current      = data_v_i ? key_i        : key_q;
 	assign key_rcon_current = data_v_i ? 8'b0011_0110 : key_rcon_q; // init value at 57
 	
-	aes_inv_key_shedualing m_inv_key_shedualing(
+	iks m_iks(
 		 .key_i     (key_current),
 		 .key_rcon_i(key_rcon_current),
 		 .key_next_o(key_next),

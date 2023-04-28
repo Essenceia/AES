@@ -1,5 +1,5 @@
 // Invert sbox
-module aes_inv_sbox(
+module isbox(
     input  [7:0] data_i,
     output [7:0] data_o
     );

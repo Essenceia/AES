@@ -9,7 +9,7 @@ ARCHITECTURE behavior OF aes_sbox_test IS
  
     -- Component Declaration for the Unit Under Test (UUT)
  
-    COMPONENT aes_sbox
+    COMPONENT sbox
     PORT(
          data_i : IN  std_logic_vector(7 downto 0);
          data_o : OUT std_logic_vector(7 downto 0)
@@ -31,7 +31,7 @@ ARCHITECTURE behavior OF aes_sbox_test IS
 BEGIN
  
 	-- Instantiate the Unit Under Test (UUT)
-   uut: aes_sbox PORT MAP (
+   uut: sbox PORT MAP (
           data_i => data_i,
           data_o => data_o
         );

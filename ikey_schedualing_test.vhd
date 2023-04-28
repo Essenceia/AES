@@ -8,7 +8,7 @@ ARCHITECTURE behavior OF aes_inv_key_schedualing_test IS
 	
 	 -- Component Declaration for the Unit Under Test (UUT)
 	
-	 COMPONENT aes_inv_key_shedualing
+	 COMPONENT iks
 	 PORT(
 	      key_i : IN  std_logic_vector(127 downto 0);
 	      key_rcon_i : IN  std_logic_vector(7 downto 0);
@@ -42,7 +42,7 @@ ARCHITECTURE behavior OF aes_inv_key_schedualing_test IS
 BEGIN
  
 	-- Instantiate the Unit Under Test (UUT)
-	uut: aes_inv_key_shedualing PORT MAP (
+	uut: iks PORT MAP (
 		key_i => key_i,
 		key_rcon_i => key_rcon_i,
 		key_next_o => key_next_o,

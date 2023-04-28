@@ -25,7 +25,7 @@ module aes_key_first_col(
 	genvar i;
 	generate
 		for(i=0; i<4; i=i+1) begin : loop_gen_key_sbox
-			aes_sbox key_sbox(
+			sbox m_key_sbox(
 				.data_i(key_rot[(i*8)+7:(i*8)]),
 				.data_o(key_sbox[(i*8)+7:(i*8)])
 			);
@@ -41,7 +41,7 @@ module aes_key_first_col(
 	assign rcon_overflow   = key_rcon_i[7];
 	assign rcon_next[7:0]  = { key_rcon_i[6:0], 1'b0} ;
 	assign debug_rcon_next = ( {8{ rcon_overflow}} & 8'h1b ) 
-			       | ( {8{~rcon_overflow}} & rcon_next);
+			       			| ( {8{~rcon_overflow}} & rcon_next);
 			
 	// output
 	assign key_w3_next_o   = key_xor;
@@ -49,12 +49,12 @@ module aes_key_first_col(
 	
 endmodule // aes_key_first_col
 
-module aes_key_shedualing(
-         input  wire [127:0] key_i,
-	 input  wire [7:0]   key_rcon_i,
-         output wire [127:0] key_next_o,
-	 output wire [7:0]   key_rcon_o
-    );
+module ks(
+	input  wire [127:0] key_i,
+	input  wire [7:0]   key_rcon_i,
+	output wire [127:0] key_next_o,
+	output wire [7:0]   key_rcon_o
+	);
 	wire [31:0] key_col[3:0];
 	wire [31:0] key_col_w3;
 	wire [31:0] key_col_next[3:0];

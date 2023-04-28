@@ -1,15 +1,15 @@
 `timescale 1ns / 1ps
 
-module aes_enc(
-	 input clk,
-	 input nreset,
-	 
-         output [127:0] res_o,  // result
-	 output         res_v_o,// valid result
-	 input          data_v_i,
-         input [127:0]  data_i,
-	 input [127:0]  key_i
-         );
+module aes(
+	input clk,
+	input nreset,
+	
+	input          data_v_i, // input valid
+	input [127:0]  data_i,   // message to decode
+	input [127:0]  key_i,    // key
+	output         res_v_o,  // result valid
+	output [127:0] res_o     // result
+	);
 
 	reg  [127:0] data_q;
 	wire [127:0] data_next;
@@ -68,7 +68,7 @@ module aes_enc(
 	genvar sb_i;
 	generate 
 		for (sb_i=0; sb_i<16; sb_i=sb_i+1) begin : loop_gen_sb_i				
-			aes_sbox sb(
+			sbox m_sbox(
 				.data_i( data_q[(sb_i*8)+7:(sb_i*8)]),
 				//.data_i( 8'h0),
 				.data_o( sub_bytes[(sb_i*8)+7:(sb_i*8)])
@@ -80,7 +80,7 @@ module aes_enc(
 	//			2,
 	//			1,
 	//			0 ]
-	genvar sr_r;
+	genvar sr_r
 	generate 
 		for (sr_r=0; sr_r<4; sr_r=sr_r+1) begin : loop_gen_sr_r
 			assign sub_bytes_row[sr_r] = { sub_bytes[3*32+8*sr_r+7:3*32+8*sr_r],
@@ -103,7 +103,7 @@ module aes_enc(
 	generate 
 		for (mc_c=0; mc_c<4; mc_c=mc_c+1) begin : loop_gen_mc_c
 			
-			aes_mixw mixw ( 
+			mixw m_mixw ( 
 				.w_i(    shift_row[  mc_c*32+31:mc_c*32] ), 
 				.mixw_o( mix_columns[mc_c*32+31:mc_c*32])
 			);
@@ -120,7 +120,7 @@ module aes_enc(
 	assign key_current      = data_v_i ? key_i        : key_q;
 	assign key_rcon_current = data_v_i ? 8'b0000_0001 : key_rcon_q;
 	
-	aes_key_shedualing m_key_shedualing(
+	ks m_ks(
 		 .key_i     (key_current),
 		 .key_rcon_i(key_rcon_current),
 		 .key_next_o(key_next),

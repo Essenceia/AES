@@ -85,7 +85,7 @@ module gm14(
 	assign gm14_o = gm8 ^ gm4 ^ gm2;
 endmodule  
 
-module aes_inv_mixw(
+module imixw(
 	input  [31:0] w_i,
 	output [31:0] mixw_o
 	);

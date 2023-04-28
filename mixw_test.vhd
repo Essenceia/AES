@@ -9,7 +9,7 @@ END aes_mix_columns_test;
 ARCHITECTURE behavior OF aes_mix_columns_test IS 
  
     -- Component Declaration for the Unit Under Test (UUT)
-    COMPONENT aes_mixw
+    COMPONENT mixw
     PORT(
          w_i    : IN   std_logic_vector(31 downto 0);
          mixw_o : OUT  std_logic_vector(31 downto 0)
@@ -33,7 +33,7 @@ ARCHITECTURE behavior OF aes_mix_columns_test IS
 BEGIN
  
    -- Instantiate the Unit Under Test (UUT)
-   uut: aes_mixw PORT MAP (
+   uut: mixw PORT MAP (
           w_i    => data_i,
           mixw_o => data_o
         );

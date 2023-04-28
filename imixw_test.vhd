@@ -7,7 +7,7 @@ END aes_inv_mixw_test;
 ARCHITECTURE behavior OF aes_inv_mixw_test IS 
  
 	-- Component Declaration for the Unit Under Test (UUT)
-	COMPONENT aes_inv_mixw
+	COMPONENT imixw
 	PORT(
 	     w_i : IN  std_logic_vector(31 downto 0);
 	     mixw_o : OUT  std_logic_vector(31 downto 0)
@@ -28,7 +28,7 @@ ARCHITECTURE behavior OF aes_inv_mixw_test IS
 BEGIN
  
 	-- Instantiate the Unit Under Test (UUT)
-	uut: aes_inv_mixw PORT MAP (
+	uut: imixw PORT MAP (
 		w_i => w_i,
 		mixw_o => mixw_o
         );

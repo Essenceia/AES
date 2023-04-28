@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-module aes_sbox(
+module sbox(
     input  [7:0] data_i,
     output [7:0] data_o
     );

@@ -9,7 +9,7 @@ END aes_enc_top_test;
  
 ARCHITECTURE behavior OF aes_enc_top_test IS 
  
-	COMPONENT aes_enc
+	COMPONENT aes
 	PORT(
 		clk    : IN std_logic;
 		nreset : IN std_logic;
@@ -50,7 +50,7 @@ ARCHITECTURE behavior OF aes_enc_top_test IS
 BEGIN
  
 	-- Instantiate the Unit Under Test (UUT)
-	uut: aes_enc
+	uut: aes
 	PORT MAP (
 		clk    => clk,
 		nreset => nreset,

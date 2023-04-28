@@ -9,7 +9,7 @@ END aes_dec_top_test;
  
 ARCHITECTURE behavior OF aes_dec_top_test IS 
  
-	COMPONENT aes_dec
+	COMPONENT iaes
 	PORT(
 		clk    : IN std_logic;
 		nreset : IN std_logic;
@@ -53,7 +53,7 @@ ARCHITECTURE behavior OF aes_dec_top_test IS
 BEGIN
  
 	-- Instantiate the Unit Under Test (UUT)
-	uut: aes_dec
+	uut: iaes
 	PORT MAP (
 		clk    => clk,
 		nreset => nreset,

@@ -25,7 +25,7 @@ endmodule // gm2
 
  endmodule // gm3
 
- module aes_mixw(
+ module mixw(
 	input  [31:0] w_i,
 	output [31:0] mixw_o
 	);

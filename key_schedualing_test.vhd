@@ -8,7 +8,7 @@ END aes_key_schedualing_test;
 ARCHITECTURE behavior OF aes_key_schedualing_test IS 
  
     -- Component Declaration for the Unit Under Test (UUT)
-    COMPONENT aes_key_shedualing
+    COMPONENT ks
     PORT(
          key_i : IN  std_logic_vector(127 downto 0);
          key_rcon_i : IN  std_logic_vector(7 downto 0);
@@ -40,7 +40,7 @@ ARCHITECTURE behavior OF aes_key_schedualing_test IS
 BEGIN
  
 	-- Instantiate the Unit Under Test (UUT)
-   uut: aes_key_shedualing PORT MAP (
+   uut: ks PORT MAP (
           key_i => key_i,
           key_rcon_i => key_rcon_i,
           key_next_o => key_next_o,
