@@ -139,6 +139,7 @@ BEGIN
 			
 			data_v_i <= '0';
 			data_i  <= ( others => 'X' );
+			key_i   <= ( others => 'X' );
 			-- wait for module to produce valid output
 			while not ( res_v_o = '1' ) loop
 				wait for clk_period;
