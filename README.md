@@ -4,6 +4,8 @@ Implementation of the AES128 encryption/decryption algorithm into synthesizable 
 The encryption/decryption takes place over multiple cycles inline with the aes's rounds, for
 aes128 it take 12 cycles for the module to produce an output.
 
+![Wave overview of aes simulation!](/doc/enc.png)
+
 ## RTL
 
 This synthesizable implementation of AES128 includes two separate designs : one for encryption and another for decryption.
@@ -88,8 +90,11 @@ These operations are done in a Galois field, as such the definition of operation
 is different.
 
 Encryption :
+
 ![Mix column math!](/doc/mixw.png)
+
 Decryption :
+
 ![Invert mix column math!](/doc/imixw.png)
 
 #### Encryption interface
@@ -114,6 +119,7 @@ This module derives the new 4 byte key and 1 byte round constant (rcon) for the 
 Internally this module also calls on the sbox module during operations on the higher order byte.
 
 encryption : 
+
 ![Key schedulaing, source : https://braincoke.fr/blog/2020/08/the-aes-key-schedule-explained/!](doc/ks.png)
 
 #### Encryption interface
