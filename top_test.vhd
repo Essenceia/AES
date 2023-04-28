@@ -114,9 +114,9 @@ BEGIN
 	begin
 		-- file location is relative
 		-- open files containing test vectors, different files for input/output
-		file_open( tb_data_i_file, "test_vector/aes_enc_data_i.txt", read_mode);
-		file_open( tb_key_i_file,  "test_vector/aes_enc_key_i.txt",  read_mode);
-		file_open( tb_res_o_file,  "test_vector/aes_enc_res_o.txt", read_mode);
+		file_open( tb_data_i_file, "tv/aes_enc_data_i.txt", read_mode);
+		file_open( tb_key_i_file,  "tv/aes_enc_key_i.txt",  read_mode);
+		file_open( tb_res_o_file,  "tv/aes_enc_res_o.txt", read_mode);
 		nreset <= '0';
 		wait for 16 ns;
 		nreset  <= '1';
