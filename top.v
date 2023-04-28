@@ -80,7 +80,7 @@ module aes(
 	//			2,
 	//			1,
 	//			0 ]
-	genvar sr_r
+	genvar sr_r;
 	generate 
 		for (sr_r=0; sr_r<4; sr_r=sr_r+1) begin : loop_gen_sr_r
 			assign sub_bytes_row[sr_r] = { sub_bytes[3*32+8*sr_r+7:3*32+8*sr_r],
