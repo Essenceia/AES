@@ -31,7 +31,7 @@ This module includes :
 - shift row round 
 
 
-#### encryption interface
+#### Encryption interface
 
 ```
 module aes(
@@ -66,7 +66,7 @@ Sbox module output the corresponding byte according to the Rijndael S-box substi
 
 We do not store the sbox lookup table in memory but rater calculate it on the fly.
  
-#### encryption interface
+#### Encryption interface
 ```
 module sbox(
     input  [7:0] data_i,
@@ -92,7 +92,7 @@ Encryption :
 Decryption :
 ![Invert mix column math!](/doc/imixw.png)
 
-#### encryption interface
+#### Encryption interface
 ```
  module mixw(
 	input  [31:0] w_i,
@@ -110,13 +110,13 @@ module imixw(
 
 ### Key scheduling 
 
-This module derives the new 4 byte key and 1 byte round constrant (rcon) for the current aes round by taking in the previous round key and rcon. 
+This module derives the new 4 byte key and 1 byte round constant (rcon) for the current aes round by taking in the previous round key and rcon. 
 Internally this module also calls on the sbox module during operations on the higher order byte.
 
 encryption : 
 ![Key schedulaing, source : https://braincoke.fr/blog/2020/08/the-aes-key-schedule-explained/!](doc/ks.png)
 
-#### encryption interface
+#### Encryption interface
 ```
 module ks(
 	input  wire [127:0] key_i,
@@ -134,4 +134,54 @@ module iks(
 	output wire [7:0]   key_rcon_o
 	);
 ```
+
 ## Test bench
+
+### Top 
+
+This implementation's correctness is tested by comparing, for a given input, the output produced
+by the rtl and a golden model implemented in C. 
+
+Located in the `tv/` folder an implementation of aes in C produced a number of random data and keys and 
+computes the encoded output data and last round keys. Each of these values is written to file using ascii
+in a binary representation from msb to lsb, and using one line per vector. 
+
+Output files :
+
+- `aes_enc_data_i.txt` input data for encryption
+
+- `aes_enc_key_i.txt` input for encryption
+
+- `aes_enc_data_o.txt` encrypted data
+
+- `aes_enc_key_o.txt` key at the last round of the encryption
+
+By default these files should be populated with 10 unique test vectors so
+there is no need to run the golden model.
+
+#### Generating new test vectors
+
+To generate new test vectors we first need to compile our C AES code and run the resulting program.
+
+```
+make aes
+./aes
+```
+
+( optional ) To build with debug :
+```
+make aes debug=1
+```
+
+##### Configuration 
+
+Users can configure the generation of test vector using the following macro's "
+
+- `TEST_NUM`  number of test vectors to be generated, located in `main.c`, default value is `10`
+
+- `FILE_STR` array of file names to which the test vectors are written, located in `file.h`, default value is `{"aes_enc_data_i.txt","aes_enc_key_i.txt","aes_enc_res_o.txt", "aes_enc_key_o.txt"}`
+
+##### aes.h
+
+This aes implementation was originally written by Dani Huertas and Nikita Cartes and
+can be found at [https://github.com/dhuertas/AES](https://github.com/dhuertas/AES) 
