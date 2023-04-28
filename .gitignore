@@ -1,13 +1,16 @@
 *
+!doc
+!doc/**
 !*.md
 !*.v
 !*.vhd
 !.gitignore
+!.gitattribute
 !*.pdf
 !*.c
 !*.sh
 !*.h
 !makefile
-!test_vector
+!tv
 !*_i.txt
 !*_o.txt
