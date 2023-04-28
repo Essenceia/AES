@@ -6,7 +6,7 @@ aes128 it take 12 cycles for the module to produce an output.
 
 ## RTL
 
-This synthesizable implementation of AES128 includes two separate desings : one for encryption and another for decryption.
+This synthesizable implementation of AES128 includes two separate designs : one for encryption and another for decryption.
 Our implementation breaks down the more difficult rounds of the AES algorithm into there own module, simpler rounds are
 performed in the top level. 
 
@@ -26,7 +26,7 @@ This module includes :
 
 - FSM keeping track of the aes round we are currently
 
-- flops for the data an:d key
+- flops for the data and key
 
 - shift row round 
 
@@ -137,6 +137,20 @@ module iks(
 
 ## Test bench
 
+This project includes a dedicated test bench for all major module. 
+The top level test benches are the most complete and the main tool for testing this design and comparing it's output to our model.
+Other test benches are smaller and do not support external test vectors, they are used for debugging the
+individual modules.
+
+Test bench files :
+|    | Encryption      | Decryption |
+| -- | --------------- | ----------- |
+|top | top\_test.vhd   | itop\_test.vhd  |
+|sbox| sbox\_test.vhd  | isbox\_test.vhd      |
+|mix columns | mixw\_test.vhd  | imixw\_test.vhd      |
+|key scheduling| ks\_test.vhd  | iks\_test.vhd  |
+
+
 ### Top 
 
 This implementation's correctness is tested by comparing, for a given input, the output produced
@@ -157,7 +171,7 @@ Output files :
 - `aes_enc_key_o.txt` key at the last round of the encryption
 
 By default these files should be populated with 10 unique test vectors so
-there is no need to run the golden model.
+there is no requirement for users to run the model.
 
 #### Generating new test vectors
 
