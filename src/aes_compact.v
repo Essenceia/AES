@@ -163,6 +163,9 @@ aes_key_first_col m_key_col_first(
 .key_rcon_o(rcon_next)
 );
 
+always @(posedge clk) 
+	rcon_q <= rcon_next; 
+
 // Cheaper to splurge and just do everything in parallel
 assign kcol0_xor = kcol0 ^ kcol3_rcon; 
 assign kcol1_xor = kcol1 ^ kcol0;
