@@ -2,7 +2,7 @@
 
 `default_nettype none
 
-module aes_compac #(
+module aes_compact #(
 	localparam TXT_W = 128, // regardless of cipher
 	localparam KEY_W = 128
 )(
@@ -11,6 +11,7 @@ module aes_compac #(
 	
 	input            data_v_i, // input valid
 	input [TXT_W:0]  data_i,   // message to decode
+	input            key_v_i,
 	input [KEY_W:0]  key_i,    // key
 	output           res_v_o,  // result valid
 	output [TXT_W:0] res_o     // result
@@ -56,12 +57,12 @@ reg [COL_N-1:0] col_sel_q;
 
 always @(posedge clk) // TODO set/rst
 	if (~rst_n) col_sel_q <= 4'b0001;
-	else col_sel_q <= {col_sel_q[COL_N-2:0], col_sel_q[CON_N-1]};
+	else col_sel_q <= {col_sel_q[COL_N-2:0], col_sel_q[COL_N-1]};
 
-assign col_sr = col0 & {{COL_W{col_sel_q[0]}} |
-				col1 & {{COL_W{col_sel_q[1]}} |	 
-				col2 & {{COL_W{col_sel_q[2]}} |	 
-				col3 & {{COL_W{col_sel_q[3]}};
+assign col_sr = col0 & {COL_W{col_sel_q[0]}} |
+				col1 & {COL_W{col_sel_q[1]}} |	 
+				col2 & {COL_W{col_sel_q[2]}} |	 
+				col3 & {COL_W{col_sel_q[3]}};
 `else
 localparam SEL_W = $clog2(COL_N);
 reg [SEL_W-1:0] col_sel_q;
@@ -83,12 +84,12 @@ always @(*)
 wire [COL_W-1:0] col_sb;
 genvar sb_i;
 generate 
-	for (genvar sb_i=0; sb_i<4; sb_i=sb_i+1) begin : loop_gen_sb_i				
-		sbox m_sbox(
-			.data_i( col_sr[(sb_i+1)*8-1-:8]),
-			.data_o( col_sb[(sb_i+1)*8-1-:8])
-	    );
-	end
+for (genvar sb_i=0; sb_i<4; sb_i=sb_i+1) begin : loop_gen_sb_i				
+	sbox m_sbox(
+		.data_i( col_sr[(sb_i+1)*8-1-:8]),
+		.data_o( col_sb[(sb_i+1)*8-1-:8])
+    );
+end
 endgenerate
 
 // MixColumns
@@ -98,13 +99,20 @@ mixw m_mixw(
 	.mixw_o(col_mc)
 );
 
-wire [COL_W-1:0] key_col; // TODO
+wire [KCOL_W-1:0] kcol0, kcol1, kcol2, kcol3; 
+wire [COL_W-1:0] key_col; 
 wire [COL_W-1:0] col_rk; 
+
+assign key_col = kcol0 & {COL_W{col_sel_q[0]}} |
+				 kcol1 & {COL_W{col_sel_q[1]}} |	 
+				 kcol2 & {COL_W{col_sel_q[2]}} |	 
+				 kcol3 & {COL_W{col_sel_q[3]}};
+
 assign col_rk = col_mc ^ key_col; 
 
 // write-back
 wire [COL_N-1:0] data_en; 
-wire [COL_W-1:0] data_i_col0, data_i_col1, data_i_col3, data_i_col3; 
+wire [COL_W-1:0] data_i_col0, data_i_col1, data_i_col2, data_i_col3; 
 wire [COL_W-1:0] col0_next, col1_next, col2_next, col3_next; 
 
 // TODO fix - organize by col 
@@ -120,11 +128,63 @@ assign col3_next = data_v_i ? data_i_col3 : col_rk;
 
 assign data_en = col_sel_q | {COL_N{data_v_i}};
 // sdff to come
-always @(posedge clk) 
+always @(posedge clk) begin 
 	if (data_en[0]) data_q[TXT_W-1-:COL_W]         <= col0_next; 
 	if (data_en[1]) data_q[TXT_W-COL_W-1-:COL_W]   <= col1_next; 
 	if (data_en[2]) data_q[TXT_W-2*COL_W-1-:COL_W] <= col2_next; 
 	if (data_en[3]) data_q[TXT_W-3*COL_W-1-:COL_W] <= col3_next;
+end
 
- 
+
+// key schedulaing 
+localparam RCON_MAX = KEY_W == 128 ? 'h36 : KEY_W == 198 ? 'h40 : 'h80;
+localparam RCON_W = $clog2(RCON_MAX);
+
+reg [KEY_W-1:0]  key_q; 
+
+reg  [RCON_W-1:0] rcon_q;
+wire [RCON_W-1:0] rcon_next;
+
+localparam KCOL_W = COL_W; 
+localparam KCOL_N = KEY_W / KCOL_W; 
+wire [KCOL_W-1:0] kcol0_xor, kcol1_xor, kcol2_xor, kcol3_xor; 
+wire [KCOL_W-1:0] kcol0_next, kcol1_next, kcol2_next, kcol3_next; 
+wire [KCOL_W-1:0] kcol3_rcon;
+
+assign kcol0 = key_q[KEY_W-1-:KCOL_W];
+assign kcol1 = key_q[KEY_W-KCOL_W-1-:KCOL_W];
+assign kcol2 = key_q[KEY_W-2*KCOL_W-1-:KCOL_W];
+assign kcol3 = key_q[KEY_W-3*KCOL_W-1-:KCOL_W];
+
+aes_key_first_col m_key_col_first(
+.key_w3_i  (kcol3),
+.key_rcon_i(rcon_q),
+.key_w3_next_o(kcol3_rcon),
+.key_rcon_o(rcon_next)
+);
+
+// Cheaper to splurge and just do everything in parallel
+assign kcol0_xor = kcol0 ^ kcol3_rcon; 
+assign kcol1_xor = kcol1 ^ kcol0;
+assign kcol2_xor = kcol2 ^ kcol1;
+assign kcol3_xor = kcol3 ^ kcol2;
+
+assign kcol0_next = key_v_i? key_i[KEY_W-1-:KCOL_W]         : kcol0_xor;
+assign kcol1_next = key_v_i? key_i[KEY_W-KCOL_W-1-:KCOL_W]  : kcol1_xor;
+assign kcol2_next = key_v_i? key_i[KEY_W-2*KCOL_W-1-:KCOL_W]: kcol2_xor;
+assign kcol3_next = key_v_i? key_i[KEY_W-3*KCOL_W-1-:KCOL_W]: kcol3_xor;
+
+wire [KCOL_N-1:0] kcol_en; 
+assign kcol_en = col_sel_q | {KCOL_N{key_v_i}}; // TODO
+always @(posedge clk) begin
+	if (kcol_en[0]) key_q[KEY_W-1-:KCOL_W]          <= kcol0_next;
+	if (kcol_en[1]) key_q[KEY_W-KCOL_W-1-:KCOL_W]   <= kcol1_next;
+	if (kcol_en[2]) key_q[KEY_W-2*KCOL_W-1-:KCOL_W] <= kcol2_next;
+	if (kcol_en[2]) key_q[KEY_W-3*KCOL_W-1-:KCOL_W] <= kcol3_next;
+end
+
+// tmp 
+assign res_o = data_q; 
+assign res_v_o = 1'b0;
+
 endmodule

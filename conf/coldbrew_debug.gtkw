@@ -1,0 +1,45 @@
+[*]
+[*] GTKWave Analyzer v3.3.115 (w)1999-2023 BSI
+[*] Sun Jul 12 22:12:18 2026
+[*]
+[dumpfile] "/home/pitchu/asic/expresso/cocotb/sim_build/chip_top_tb.fst"
+[dumpfile_mtime] "Sun Jul 12 22:11:13 2026"
+[dumpfile_size] 10053303
+[savefile] "/home/pitchu/asic/expresso/conf/coldbrew_debug.gtkw"
+[timestart] 0
+[size] 1910 499
+[pos] -1 -1
+*-20.000000 1053900 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] chip_top_tb.
+[treeopen] chip_top_tb.chip_top.
+[treeopen] chip_top_tb.chip_top.i_chip_core.
+[treeopen] chip_top_tb.chip_top.i_chip_core.m_coldbrew.
+[treeopen] chip_top_tb.chip_top.i_chip_core.m_coldbrew.m_mac_conf.
+[sst_width] 456
+[signals_width] 345
+[sst_expanded] 1
+[sst_vpaned_height] 184
+@28
+chip_top_tb.chip_top.i_chip_core.m_coldbrew.m_mac_rx.rx_v_i
+chip_top_tb.chip_top.i_chip_core.m_coldbrew.m_mac_rx.rx_i[1:0]
+chip_top_tb.chip_top.i_chip_core.m_coldbrew.m_mac_rx.rx_err_i
+@29
+chip_top_tb.chip_top.i_chip_core.m_coldbrew.m_mac_rx.data_conf_o
+@28
+chip_top_tb.chip_top.i_chip_core.m_coldbrew.m_mac_rx.data_start_o
+chip_top_tb.chip_top.i_chip_core.m_coldbrew.m_mac_rx.fwd_q
+@22
+chip_top_tb.chip_top.i_chip_core.m_coldbrew.m_mac_rx.fsm_q[3:0]
+chip_top_tb.chip_top.i_chip_core.m_coldbrew.m_mac_rx.buff[47:0]
+@28
+chip_top_tb.chip_top.i_chip_core.m_coldbrew.m_mac_rx.buff[47:0]
+@22
+chip_top_tb.chip_top.i_chip_core.m_coldbrew.m_mac_rx.swap_buff[47:0]
+@28
+chip_top_tb.chip_top.i_chip_core.m_coldbrew.m_mac_rx.rx_i[1:0]
+chip_top_tb.phy_rx3_v
+chip_top_tb.phy_rx3[1:0]
+chip_top_tb.phy_rx3_err
+chip_top_tb.rst_n
+[pattern_trace] 1
+[pattern_trace] 0
