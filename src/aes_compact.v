@@ -4,7 +4,7 @@
 
 module aes_compact #(
 	localparam TXT_W = 128, // regardless of cipher
-	localparam KEY_W = 128
+	parameter  KEY_W = 128
 )(
 	input clk,
 	input rst_n,
