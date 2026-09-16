@@ -181,6 +181,9 @@ void add_round_key(uint8_t *state, uint8_t *w, uint8_t r) {
 		state[Nb*2+c] = state[Nb*2+c]^w[4*Nb*r+4*c+2];
 		state[Nb*3+c] = state[Nb*3+c]^w[4*Nb*r+4*c+3];	
 	}
+	#ifdef DEBUG
+	print_matrix(state, Nb*Nb, "add round key"); 
+	#endif
 }
 
 /*
@@ -204,8 +207,10 @@ void mix_columns(uint8_t *state) {
 			state[Nb*i+j] = res[i];
 		}
 	}
+	#ifdef DEBUG
+	print_matrix(state, Nb*Nb, "mix columns"); 
+	#endif
 }
-
 /*
  * Transformation in the Inverse Cipher that is the inverse of 
  * MixColumns().
@@ -251,6 +256,9 @@ void shift_rows(uint8_t *state) {
 			s++;
 		}
 	}
+	#ifdef DEBUG
+	print_matrix(state, Nb*Nb, "shift rows"); 
+	#endif
 }
 
 /*
@@ -293,6 +301,9 @@ void sub_bytes(uint8_t *state) {
 			state[Nb*i+j] = s_box[state[Nb*i+j]];
 		}
 	}
+	#ifdef DEBUG
+	print_matrix(state, Nb*Nb, "sub bytes"); 
+	#endif
 }
 
 /*
@@ -384,6 +395,9 @@ void aes_key_expansion(uint8_t *key, uint8_t *w) {
 		w[4*i+2] = w[4*(i-Nk)+2]^tmp[2];
 		w[4*i+3] = w[4*(i-Nk)+3]^tmp[3];
 	}
+	#ifdef DEBUG
+	print_matrix(w, Nb*Nk, "key expansion"); 
+	#endif
 }
 
 
