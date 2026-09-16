@@ -60,8 +60,8 @@ reg [COL_W-1:0]     col_sr;
 reg [COL_IDX_W-1:0] col_sel_q;
 
 always @(posedge clk) 
-	if (~rst_n | start_i) col_sel_q <= {SEL_W{1'b0}};
-	else col_sel_q <= col_sel_q + {{SEL_W-1{1'b0}}, 1'b1};
+	if (~rst_n | start_i) col_sel_q <= {COL_IDX_W{1'b0}};
+	else col_sel_q <= col_sel_q + {{COL_IDX_W-1{1'b0}}, 1'b1};
 
 always @(*) 
 	case(col_sel_q) 
@@ -91,7 +91,6 @@ mixw m_mixw(
 );
 
 localparam KCOL_W = COL_W; 
-localparam KCOL_N = KEY_W / KCOL_W;
 
 wire [KCOL_W-1:0] kcol0, kcol1, kcol2, kcol3; 
 wire [COL_W-1:0] key_col; 

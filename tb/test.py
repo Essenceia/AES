@@ -26,6 +26,7 @@ RST_CYCLES=10
 
 TXT_W = 128
 KEY_W = 128 
+COL_W = 32
 
 def start_clk(dut):
 	clock = Clock(dut.clk, CLK_PERIOD, CLK_UNIT)
@@ -43,7 +44,8 @@ def set_random_seed():
 # Reset sequence
 async def rst(dut, ena=1 ):
 	dut.rst_n.value = 0
-	aes_utils.set_all_enc(dut, 0, "X"*TXT_W, 0, "X"*KEY_W)
+	dut.enc_start.value = 0 
+	aes_utils.set_all_enc(dut, 0, 0, "X"*COL_W, 0, 0, "X"*COL_W)
 	clk_task = start_clk(dut)
 	await ClockCycles(dut.clk, RST_CYCLES)
 	dut.rst_n.value = 1
@@ -55,9 +57,9 @@ async def rst(dut, ena=1 ):
 async def simple_test(dut):
 	set_random_seed()
 	await rst(dut) 
-	ptxt = LogicArray.from_bytes(b'\x32\x43\xf6\xa8\x88\x5a\x30\x8d\x31\x31\x98\xa2\xe0\x37\x07\x34', byteorder="big")
-	key  = LogicArray.from_bytes(b'\x2b\x7e\x15\x16\x28\xae\xd2\xa6\xab\xf7\x15\x88\x09\xcf\x4f\x3c', byteorder="big")
-	await aes_utils.enc(dut, ptxt, key)
+	ptxt = b'\x32\x43\xf6\xa8\x88\x5a\x30\x8d\x31\x31\x98\xa2\xe0\x37\x07\x34'
+	key  = b'\x2b\x7e\x15\x16\x28\xae\xd2\xa6\xab\xf7\x15\x88\x09\xcf\x4f\x3c'
+	await aes_utils.enc128(dut, ptxt, key)
 	await ClockCycles(dut.clk, 10)
 
 

@@ -25,22 +25,36 @@ wire clk;
 wire rst_n;
 
 localparam KEY_W = `KEY_W; 
-localparam TXT_W = 128; 
+localparam COL_W = 32; 
+localparam COL_IDX_W  = 2;
+localparam KCOL_IDX_W = KEY_W/32;
 
-wire             enc_data_v; 
-wire [TXT_W-1:0] enc_data;
-wire             enc_key_v;
-wire [KEY_W-1:0] enc_key; 
+wire enc_start; 
+
+wire                 enc_data_v; 
+wire [COL_IDX_W-1:0] enc_data_idx;
+wire [COL_W-1:0]     enc_data;
+
+wire                  enc_key_v;
+wire [KCOL_IDX_W-1:0] enc_key_idx;
+wire [COL_W-1:0]      enc_key; 
+
 wire             enc_res_v; 
-wire [TXT_W-1:0] enc_res; 
+wire [COL_W-1:0] enc_res; 
 
 aes_compact #(.KEY_W(KEY_W)) m_enc(
 	.clk     (clk), 
 	.rst_n   (rst_n), 
-	.data_v_i(enc_data_v), 
-	.data_i  (enc_data), 
-	.key_v_i (enc_key_v), 
-	.key_i   (enc_key), 
+	.start_i (enc_start),
+
+	.data_v_i  (enc_data_v), 
+	.data_idx_i(enc_data_idx),
+	.data_i    (enc_data), 
+
+	.key_v_i  (enc_key_v), 
+	.key_idx_i(enc_key_idx),
+	.key_i    (enc_key), 
+
 	.res_v_o (enc_res_v), 
 	.res_o   (enc_res)
 );
