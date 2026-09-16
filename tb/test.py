@@ -12,8 +12,7 @@ import random
 import asyncio
 import time
 
-import coffeepot_tests
-import phy_utils
+import aes_utils
 
 from array import array 
 

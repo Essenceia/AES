@@ -6,15 +6,14 @@ module aes_compact #(
 	localparam TXT_W = 128, // regardless of cipher
 	parameter  KEY_W = 128
 )(
-	input clk,
-	input rst_n,
-	
-	input            data_v_i, // input valid
-	input [TXT_W:0]  data_i,   // message to decode
-	input            key_v_i,
-	input [KEY_W:0]  key_i,    // key
-	output           res_v_o,  // result valid
-	output [TXT_W:0] res_o     // result
+	input  wire clk,
+	input  wire rst_n,
+	input  wire             data_v_i, // input valid
+	input  wire [TXT_W-1:0] data_i,   // message to decode
+	input  wire             key_v_i,
+	input  wire [KEY_W-1:0] key_i,    // key
+	output wire             res_v_o,  // result valid
+	output wire [TXT_W-1:0] res_o     // result
 );
 
 /* 4x4
@@ -99,6 +98,9 @@ mixw m_mixw(
 	.mixw_o(col_mc)
 );
 
+localparam KCOL_W = COL_W; 
+localparam KCOL_N = KEY_W / KCOL_W;
+
 wire [KCOL_W-1:0] kcol0, kcol1, kcol2, kcol3; 
 wire [COL_W-1:0] key_col; 
 wire [COL_W-1:0] col_rk; 
@@ -139,14 +141,15 @@ end
 // key schedulaing 
 localparam RCON_MAX = KEY_W == 128 ? 'h36 : KEY_W == 198 ? 'h40 : 'h80;
 localparam RCON_W = $clog2(RCON_MAX);
+localparam RCON_PAD_W = 8 - RCON_W; 
 
 reg [KEY_W-1:0]  key_q; 
 
 reg  [RCON_W-1:0] rcon_q;
 wire [RCON_W-1:0] rcon_next;
 
-localparam KCOL_W = COL_W; 
-localparam KCOL_N = KEY_W / KCOL_W; 
+wire [RCON_PAD_W-1:0] rcon_pad, rcon_pad_next_unused; 
+
 wire [KCOL_W-1:0] kcol0_xor, kcol1_xor, kcol2_xor, kcol3_xor; 
 wire [KCOL_W-1:0] kcol0_next, kcol1_next, kcol2_next, kcol3_next; 
 wire [KCOL_W-1:0] kcol3_rcon;
@@ -156,11 +159,13 @@ assign kcol1 = key_q[KEY_W-KCOL_W-1-:KCOL_W];
 assign kcol2 = key_q[KEY_W-2*KCOL_W-1-:KCOL_W];
 assign kcol3 = key_q[KEY_W-3*KCOL_W-1-:KCOL_W];
 
+assign rcon_pad = {RCON_PAD_W{1'b0}};
+
 aes_key_first_col m_key_col_first(
 .key_w3_i  (kcol3),
-.key_rcon_i(rcon_q),
+.key_rcon_i({rcon_pad, rcon_q}),
 .key_w3_next_o(kcol3_rcon),
-.key_rcon_o(rcon_next)
+.key_rcon_o({rcon_pad_next_unused, rcon_next})
 );
 
 always @(posedge clk) 

@@ -8,10 +8,10 @@ TXT_W = 128
 def set_all_enc(dut, \
 	data_v: Logic, data: LogicArray, \
 	key_v: Logic, key: LogicArray): 
-	dut.enc_data_v = data_v
-	dut.enc_data = data
-	dut.enc_key_v = key_v
-	dut.enc_key = key
+	dut.enc_data_v.value = data_v
+	dut.enc_data.value = data
+	dut.enc_key_v.value = key_v
+	dut.enc_key.value = key
 
 async def enc(dut, 
 	data: LogicArray, \

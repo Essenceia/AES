@@ -8,3 +8,4 @@ __pycache__
 sim_build
 *.gtkw
 *.vcd
+*.xml

@@ -22,7 +22,7 @@ end
 
 // Wire up the inputs and outputs:
 wire clk;
-wire ena;
+wire rst_n;
 
 localparam KEY_W = `KEY_W; 
 localparam TXT_W = 128; 
