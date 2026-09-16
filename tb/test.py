@@ -55,8 +55,8 @@ async def rst(dut, ena=1 ):
 async def simple_test(dut):
 	set_random_seed()
 	await rst(dut) 
-	ptxt = LogicArray("0"*TXT_W)
-	key  = LogicArray("0"*KEY_W)
+	ptxt = LogicArray.from_bytes(b'\x32\x43\xf6\xa8\x88\x5a\x30\x8d\x31\x31\x98\xa2\xe0\x37\x07\x34', byteorder="big")
+	key  = LogicArray.from_bytes(b'\x2b\x7e\x15\x16\x28\xae\xd2\xa6\xab\xf7\x15\x88\x09\xcf\x4f\x3c', byteorder="big")
 	await aes_utils.enc(dut, ptxt, key)
 	await ClockCycles(dut.clk, 10)
 
