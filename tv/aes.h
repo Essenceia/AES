@@ -26,4 +26,4 @@ void aes_inv_cipher(uint8_t *in, uint8_t *out, uint8_t *w);
 
 void aes_cipher(uint8_t *in, uint8_t *out, uint8_t *w);
 
-void print_matrix(uint8_t *data, size_t l, char * name);
+void print_matrix(uint8_t *data, size_t l, char * name, bool is_state);

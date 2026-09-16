@@ -182,7 +182,7 @@ void add_round_key(uint8_t *state, uint8_t *w, uint8_t r) {
 		state[Nb*3+c] = state[Nb*3+c]^w[4*Nb*r+4*c+3];	
 	}
 	#ifdef DEBUG
-	print_matrix(state, Nb*Nb, "add round key"); 
+	print_matrix(state, Nb*Nb, "add round key", true); 
 	#endif
 }
 
@@ -208,7 +208,7 @@ void mix_columns(uint8_t *state) {
 		}
 	}
 	#ifdef DEBUG
-	print_matrix(state, Nb*Nb, "mix columns"); 
+	print_matrix(state, Nb*Nb, "mix columns", true); 
 	#endif
 }
 /*
@@ -257,7 +257,7 @@ void shift_rows(uint8_t *state) {
 		}
 	}
 	#ifdef DEBUG
-	print_matrix(state, Nb*Nb, "shift rows"); 
+	print_matrix(state, Nb*Nb, "shift rows", true); 
 	#endif
 }
 
@@ -302,7 +302,7 @@ void sub_bytes(uint8_t *state) {
 		}
 	}
 	#ifdef DEBUG
-	print_matrix(state, Nb*Nb, "sub bytes"); 
+	print_matrix(state, Nb*Nb, "sub bytes", true); 
 	#endif
 }
 
@@ -396,7 +396,7 @@ void aes_key_expansion(uint8_t *key, uint8_t *w) {
 		w[4*i+3] = w[4*(i-Nk)+3]^tmp[3];
 	}
 	#ifdef DEBUG
-	print_matrix(w, Nb*Nk, "key expansion"); 
+	print_matrix(w, Nb*Nk, "key expansion", true); 
 	#endif
 }
 
@@ -430,14 +430,26 @@ void aes_cipher(uint8_t *in, uint8_t *out, uint8_t *w) {
 		}
 	}
 
+	#ifdef DEBUG
+	print_matrix(state, Nb*Nb, "initial state", true);
+	printf("\nRound 0\n");
+	#endif
+
 	add_round_key(state, w, 0);
 
 	for (r = 1; r < Nr; r++) {
+		#ifdef DEBUG
+		printf("\nRound %d\n",r);
+		#endif
+
 		sub_bytes(state);
 		shift_rows(state);
 		mix_columns(state);
 		add_round_key(state, w, r);
 	}
+	#ifdef DEBUG
+	printf("\nRound %d\n", Nr);
+	#endif
 
 	sub_bytes(state);
 	shift_rows(state);
@@ -485,11 +497,12 @@ void aes_inv_cipher(uint8_t *in, uint8_t *out, uint8_t *w) {
 }
 
 
-void print_matrix(uint8_t *data, size_t l, char *name) {
+void print_matrix(uint8_t *data, size_t l, char *name, bool is_state) {
 	printf("matrix %s:\n", name);
 	for(uint8_t x=0; x < 4; x++) { 
 		for(size_t y = 0; y < l/4; y++) { 
-			printf("0x%02x ",data[4*y+x]);
+			if (is_state) printf("0x%02x ",data[4*x+y]);
+			else printf("0x%02x ",data[4*y+x]);
 		}
 		printf("\n");
 	}

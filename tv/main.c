@@ -13,12 +13,12 @@
 			
 #define PRINT_COL(i, data) printf("col%d: 0x%02x 0x%02x 0x%02x 0x%02x (0,1,2,3)\n", i, data[4*i+0], data[4*i+1], data[4*i+2], data[4*i+3])
 
-#define PRINT_MATRIX(data) print_matrix((uint8_t*)data, sizeof(data), #data)
+#define PRINT_MATRIX(data) print_matrix((uint8_t*)data, sizeof(data), #data, false)
 
 int main() {
 
-	uint8_t  in[TXT_SIZE]; 
-	uint8_t key[AES_SIZE];
+	uint8_t  in[TXT_SIZE] = {0x32, 0x43, 0xf6, 0xa8, 0x88, 0x5a, 0x30, 0x8d, 0x31, 0x31, 0x98, 0xa2, 0xe0, 0x37, 0x07, 0x34}; 
+	uint8_t key[AES_SIZE] = {0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c};
 	uint8_t out[TXT_SIZE];
 	uint8_t *w; // expanded key
 	tvf_s *f;
@@ -36,8 +36,8 @@ int main() {
 		gen_rand((uint8_t*)&key, AES_SIZE);
 		*/ 
 
-		for(uint8_t i; i < AES_SIZE; i++) key[i] = i; 
-		for(uint8_t i; i < TXT_SIZE; i++) in[i] = i; 
+		//for(uint8_t i; i < AES_SIZE; i++) key[i] = i; 
+		//for(uint8_t i; i < TXT_SIZE; i++) in[i] = i; 
 
 		aes_key_expansion(key, w);
 	
@@ -58,7 +58,7 @@ int main() {
 		// last key pointer
 		uint8_t *d = &w[AES_ROUNDS * (AES_SIZE/4)]; 
 		printf("last key - ");
-		print_matrix(d, AES_SIZE, "d");
+		print_matrix(d, AES_SIZE, "d", false);
 	
 		printf("write file, data in, key, out, expanded key:\n");
 		#endif
