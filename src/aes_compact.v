@@ -4,14 +4,25 @@
 
 module aes_compact #(
 	localparam TXT_W = 128, // regardless of cipher
-	parameter  KEY_W = 128
+	localparam COL_N = 4,
+	localparam COL_W = TXT_W/COL_N,
+	localparam COL_IDX_W = $clog2(COL_N),
+	parameter  KEY_W = 128,
+	localparam KCOL_N = KEY_W/COL_W,
+	localparam KCOL_IDX_W = $clog2(KCOL_N)
 )(
 	input  wire clk,
 	input  wire rst_n,
-	input  wire             data_v_i, // input valid
-	input  wire [TXT_W-1:0] data_i,   // message to decode
-	input  wire             key_v_i,
-	input  wire [KEY_W-1:0] key_i,    // key
+	input  wire                 start_i, 
+
+	input  wire                 data_v_i, // input valid
+	input  wire [COL_IDX_W-1:0] data_idx_i, // collumn index
+	input  wire [COL_W-1:0]     data_i,   // message to decode
+
+	input  wire                  key_v_i,
+	input  wire [KCOL_IDX_W-1:0] key_idx_i,
+	input  wire [COL_W-1:0]      key_i,    // key
+
 	output wire             res_v_o,  // result valid
 	output wire [TXT_W-1:0] res_o     // result
 );
@@ -22,8 +33,6 @@ Organized by collumns
 */
 reg [TXT_W-1:0] data_q; // 4x4 - organized by columns 
 
-localparam COL_N = 4;
-localparam COL_W = TXT_W / COL_N;
 localparam ROW_W = COL_W; 
 
 // shift rows - redundant to make gtkwave not blind, I know what I am doing don't worry
@@ -47,27 +56,11 @@ assign col1 = {data_sr[TXT_W-1-8-:8],   data_sr[TXT_W-ROW_W-8-1-:8],   data_sr[T
 assign col2 = {data_sr[TXT_W-1-2*8-:8], data_sr[TXT_W-ROW_W-2*8-1-:8], data_sr[TXT_W-2*ROW_W-2*8-1-:8], data_sr[TXT_W-3*ROW_W-2*8-1-:8]};
 assign col3 = {data_sr[TXT_W-1-3*8-:8], data_sr[TXT_W-ROW_W-3*8-1-:8], data_sr[TXT_W-2*ROW_W-3*8-1-:8], data_sr[TXT_W-3*ROW_W-3*8-1-:8]};
 
-
-reg [COL_W-1:0] col_sr;
-
-`define ANDOR_RED
-`ifdef ANDOR_RED
-reg [COL_N-1:0] col_sel_q; 
-
-always @(posedge clk) // TODO set/rst
-	if (~rst_n) col_sel_q <= 4'b0001;
-	else col_sel_q <= {col_sel_q[COL_N-2:0], col_sel_q[COL_N-1]};
-
-assign col_sr = col0 & {COL_W{col_sel_q[0]}} |
-				col1 & {COL_W{col_sel_q[1]}} |	 
-				col2 & {COL_W{col_sel_q[2]}} |	 
-				col3 & {COL_W{col_sel_q[3]}};
-`else
-localparam SEL_W = $clog2(COL_N);
-reg [SEL_W-1:0] col_sel_q;
+reg [COL_W-1:0]     col_sr;
+reg [COL_IDX_W-1:0] col_sel_q;
 
 always @(posedge clk) 
-	if (~rst_n) col_sel_q <= {SEL_W{1'b0}};
+	if (~rst_n | start_i) col_sel_q <= {SEL_W{1'b0}};
 	else col_sel_q <= col_sel_q + {{SEL_W-1{1'b0}}, 1'b1};
 
 always @(*) 
@@ -77,7 +70,6 @@ always @(*)
 		2'd2: col_sr <= col2;
 		2'd3: col_sr <= col3;
 	endcase
-`endif
 
 // Sbox
 wire [COL_W-1:0] col_sb;
@@ -104,37 +96,26 @@ localparam KCOL_N = KEY_W / KCOL_W;
 wire [KCOL_W-1:0] kcol0, kcol1, kcol2, kcol3; 
 wire [COL_W-1:0] key_col; 
 wire [COL_W-1:0] col_rk; 
+wire [COL_W-1:0] col_rk_inner; 
 
-assign key_col = kcol0 & {COL_W{col_sel_q[0]}} |
-				 kcol1 & {COL_W{col_sel_q[1]}} |	 
-				 kcol2 & {COL_W{col_sel_q[2]}} |	 
-				 kcol3 & {COL_W{col_sel_q[3]}};
+assign key_col = kcol0 & {COL_W{col_sel_q == 2'd0}} |
+				 kcol1 & {COL_W{col_sel_q == 2'd1}} |	 
+				 kcol2 & {COL_W{col_sel_q == 2'd2}} |	 
+				 kcol3 & {COL_W{col_sel_q == 2'd3}};
 
-assign col_rk = col_mc ^ key_col; 
+assign col_rk_inner = data_v_i ? data_i: col_mc;
+assign col_rk = col_rk_inner ^ key_col; 
 
 // write-back
 wire [COL_N-1:0] data_en; 
-wire [COL_W-1:0] data_i_col0, data_i_col1, data_i_col2, data_i_col3; 
-wire [COL_W-1:0] col0_next, col1_next, col2_next, col3_next; 
 
-// TODO fix - organize by col 
-assign data_i_col0 = {data_i[TXT_W-1-:8],     data_i[TXT_W-ROW_W-1-:8],     data_i[TXT_W-2*ROW_W-1-:8],     data_i[TXT_W-3*ROW_W-1-:8]};
-assign data_i_col1 = {data_i[TXT_W-1-8-:8],   data_i[TXT_W-ROW_W-8-1-:8],   data_i[TXT_W-2*ROW_W-8-1-:8],   data_i[TXT_W-3*ROW_W-8-1-:8]};
-assign data_i_col2 = {data_i[TXT_W-1-2*8-:8], data_i[TXT_W-ROW_W-2*8-1-:8], data_i[TXT_W-2*ROW_W-2*8-1-:8], data_i[TXT_W-3*ROW_W-2*8-1-:8]};
-assign data_i_col3 = {data_i[TXT_W-1-3*8-:8], data_i[TXT_W-ROW_W-3*8-1-:8], data_i[TXT_W-2*ROW_W-3*8-1-:8], data_i[TXT_W-3*ROW_W-3*8-1-:8]};
-
-assign col0_next = data_v_i ? data_i_col0 : col_rk; 
-assign col1_next = data_v_i ? data_i_col1 : col_rk; 
-assign col2_next = data_v_i ? data_i_col2 : col_rk; 
-assign col3_next = data_v_i ? data_i_col3 : col_rk; 
-
-assign data_en = col_sel_q | {COL_N{data_v_i}};
+assign data_en = data_v_i ? data_idx_i: col_sel_q;
 // sdff to come
 always @(posedge clk) begin 
-	if (data_en[0]) data_q[TXT_W-1-:COL_W]         <= col0_next; 
-	if (data_en[1]) data_q[TXT_W-COL_W-1-:COL_W]   <= col1_next; 
-	if (data_en[2]) data_q[TXT_W-2*COL_W-1-:COL_W] <= col2_next; 
-	if (data_en[3]) data_q[TXT_W-3*COL_W-1-:COL_W] <= col3_next;
+	if (data_en == 2'd0) data_q[TXT_W-1-:COL_W]         <= col_rk; 
+	if (data_en == 2'd1) data_q[TXT_W-COL_W-1-:COL_W]   <= col_rk; 
+	if (data_en == 2'd2) data_q[TXT_W-2*COL_W-1-:COL_W] <= col_rk; 
+	if (data_en == 2'd3) data_q[TXT_W-3*COL_W-1-:COL_W] <= col_rk;
 end
 
 
@@ -177,18 +158,18 @@ assign kcol1_xor = kcol1 ^ kcol0;
 assign kcol2_xor = kcol2 ^ kcol1;
 assign kcol3_xor = kcol3 ^ kcol2;
 
-assign kcol0_next = key_v_i? key_i[KEY_W-1-:KCOL_W]         : kcol0_xor;
-assign kcol1_next = key_v_i? key_i[KEY_W-KCOL_W-1-:KCOL_W]  : kcol1_xor;
-assign kcol2_next = key_v_i? key_i[KEY_W-2*KCOL_W-1-:KCOL_W]: kcol2_xor;
-assign kcol3_next = key_v_i? key_i[KEY_W-3*KCOL_W-1-:KCOL_W]: kcol3_xor;
+assign kcol0_next = key_v_i? key_i: kcol0_xor;
+assign kcol1_next = key_v_i? key_i: kcol1_xor;
+assign kcol2_next = key_v_i? key_i: kcol2_xor;
+assign kcol3_next = key_v_i? key_i: kcol3_xor;
 
-wire [KCOL_N-1:0] kcol_en; 
-assign kcol_en = col_sel_q | {KCOL_N{key_v_i}}; // TODO
+wire [KCOL_IDX_W-1:0] kcol_en; 
+assign kcol_en = key_v_i ? key_idx_i : col_sel_q; // TODO
 always @(posedge clk) begin
-	if (kcol_en[0]) key_q[KEY_W-1-:KCOL_W]          <= kcol0_next;
-	if (kcol_en[1]) key_q[KEY_W-KCOL_W-1-:KCOL_W]   <= kcol1_next;
-	if (kcol_en[2]) key_q[KEY_W-2*KCOL_W-1-:KCOL_W] <= kcol2_next;
-	if (kcol_en[2]) key_q[KEY_W-3*KCOL_W-1-:KCOL_W] <= kcol3_next;
+	if (kcol_en == 2'd0) key_q[KEY_W-1-:KCOL_W]          <= kcol0_next;
+	if (kcol_en == 2'd1) key_q[KEY_W-KCOL_W-1-:KCOL_W]   <= kcol1_next;
+	if (kcol_en == 2'd2) key_q[KEY_W-2*KCOL_W-1-:KCOL_W] <= kcol2_next;
+	if (kcol_en == 2'd3) key_q[KEY_W-3*KCOL_W-1-:KCOL_W] <= kcol3_next;
 end
 
 // tmp 
