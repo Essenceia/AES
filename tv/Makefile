@@ -2,7 +2,7 @@ ifndef debug
 #debug :=
 endif
 
-FLAGS = -Wall -Wextra -Wconversion -Wshadow -Wundef -fno-common  -Wno-unused-parameter -Wno-type-limits
+FLAGS = -Wall -Wextra -Wshadow -Wundef -fno-common  -Wno-unused-parameter -Wno-type-limits
 CC = cc $(if $(debug),-DDEBUG -g)
 LD = cc
 
