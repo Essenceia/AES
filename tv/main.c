@@ -4,19 +4,22 @@
 #include "rand.h"
 
 // AES cypher size in bytes, aes128 by default
+#define TXT_SIZE 16
 #define AES_SIZE 16
+
 #define AES_ROUNDS (AES_SIZE == 16 ? 10: AES_SIZE == 32? 14:12)
 // number of test vectors to be generated
-#define TEST_NUM 10
+#define TEST_NUM 1
 			
 #define PRINT_COL(i, data) printf("col%d: 0x%02x 0x%02x 0x%02x 0x%02x (0,1,2,3)\n", i, data[4*i+0], data[4*i+1], data[4*i+2], data[4*i+3])
 
+#define PRINT_MATRIX(data) print_matrix((uint8_t*)data, sizeof(data), #data)
 
 int main() {
 
-	uint8_t  in[AES_SIZE]; 
+	uint8_t  in[TXT_SIZE]; 
 	uint8_t key[AES_SIZE];
-	uint8_t out[AES_SIZE];
+	uint8_t out[TXT_SIZE];
 	uint8_t *w; // expanded key
 	tvf_s *f;
 		
@@ -26,42 +29,39 @@ int main() {
 	
 	// generate multiple test vectors and write them to file	
 	for(uint8_t j=0; j<TEST_NUM; j++){
+
+		/*
 		// generate new random input and key
 		gen_rand((uint8_t*)&in, AES_SIZE);
 		gen_rand((uint8_t*)&key, AES_SIZE);
+		*/ 
+
+		for(uint8_t i; i < AES_SIZE; i++) key[i] = i; 
+		for(uint8_t i; i < TXT_SIZE; i++) in[i] = i; 
 
 		aes_key_expansion(key, w);
 	
 		#ifdef DEBUG
-		printf("Plaintext message:\n");
-		for(uint8_t i = 0; i < 4; i++) {
-			PRINT_COL(i, in);
-		}
-		printf("\nkey:\n");
-		for(uint8_t i = 0; i < AES_SIZE/4; i++) {
-			PRINT_COL(i, key);
-		}
-		printf("\n");	
+		printf("Plaintext message - ");
+		PRINT_MATRIX(in);
+	
+		printf("key - ");
+		PRINT_MATRIX(key);
 		#endif
 		
 		aes_cipher(in /* in */, out /* out */, w /* expanded key */);
 		
 		#ifdef DEBUG
-		printf("Ciphered message:\n");
-		for(uint8_t i = 0; i < 4; i++) {
-			PRINT_COL(i, out);
-		}
-		printf("\n");
+		printf("Ciphered message - ");
+		PRINT_MATRIX(out);
+		
 		// last key pointer
 		uint8_t *d = &w[AES_ROUNDS * (AES_SIZE/4)]; 
-		printf("key:\n");
-		for(uint8_t i = 0; i < AES_SIZE/4 ; i++) {
-			PRINT_COL(i, d);
-		}
-		printf("\n");
-		#endif
+		printf("last key - ");
+		print_matrix(d, AES_SIZE, "d");
 	
-		printf("write file, data in, key, out, expanded key\n");
+		printf("write file, data in, key, out, expanded key:\n");
+		#endif
 		write_data8(f->f[0], (uint8_t*)&in,  sizeof(in));
 		write_data8(f->f[1], (uint8_t*)&key, sizeof(key));
 		write_data8(f->f[2], (uint8_t*)&out, sizeof(out));

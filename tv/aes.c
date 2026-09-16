@@ -469,3 +469,15 @@ void aes_inv_cipher(uint8_t *in, uint8_t *out, uint8_t *w) {
 		}
 	}
 }
+
+
+void print_matrix(uint8_t *data, size_t l, char *name) {
+	printf("matrix %s:\n", name);
+	for(uint8_t x=0; x < 4; x++) { 
+		for(size_t y = 0; y < l/4; y++) { 
+			printf("0x%02x ",data[4*y+x]);
+		}
+		printf("\n");
+	}
+	printf("\n"); 
+}
