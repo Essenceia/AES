@@ -5,16 +5,18 @@
 
 // AES cypher size in bytes, aes128 by default
 #define AES_SIZE 16
-
+#define AES_ROUNDS (AES_SIZE == 16 ? 10: AES_SIZE == 32? 14:12)
 // number of test vectors to be generated
 #define TEST_NUM 10
+			
+#define PRINT_COL(i, data) printf("col%d: %02x %02x %02x %02x (0,1,2,3)\n", i, data[4*i+0], data[4*i+1], data[4*i+2], data[4*i+3])
 
 
 int main() {
 
 	uint8_t i, j;
-	uint8_t  in[AES_SIZE] = {0x32,0x43,0xf6,0xa8,0x88,0x5a,0x30,0x8d,0x31,0x31,0x98,0xa2,0xe0,0x37,0x07,0x34 }; 
-	uint8_t key[AES_SIZE] = {0x2b,0x7e,0x15,0x16,0x28,0xae,0xd2,0xa6,0xab,0xf7,0x15,0x88,0x09,0xcf,0x4f,0x3c };
+	uint8_t  in[AES_SIZE]; 
+	uint8_t key[AES_SIZE];
 	uint8_t out[AES_SIZE];
 	uint8_t key_out[AES_SIZE];
 	uint8_t *w; // expanded key
@@ -35,12 +37,11 @@ int main() {
 		#ifdef DEBUG
 		printf("Plaintext message:\n");
 		for (i = 0; i < 4; i++) {
-			printf("%02x %02x %02x %02x ", in[4*i+0], in[4*i+1], in[4*i+2], in[4*i+3]);
+			PRINT_COL(i, in);
 		}
-		printf("\n");
-		printf("key:\n");
-		for (i = 0; i < 4; i++) {
-			printf("%02x %02x %02x %02x ", key[4*i+0], key[4*i+1], key[4*i+2], key[4*i+3]);
+		printf("\nkey:\n");
+		for (i = 0; i < AES_SIZE/4; i++) {
+			PRINT_COL(i, key);
 		}
 		printf("\n");	
 		#endif
@@ -50,14 +51,15 @@ int main() {
 		#ifdef DEBUG
 		printf("Ciphered message:\n");
 		for (i = 0; i < 4; i++) {
-			printf("%02x %02x %02x %02x ", out[4*i+0], out[4*i+1], out[4*i+2], out[4*i+3]);
+			PRINT_COL(i, out);
 		}
 		printf("\n");
 		// last key pointer
-		uint8_t *d = &w[160]; 
+		size_t last_key_idx = AES_ROUNDS * (AES_SIZE/4);
+		uint8_t *d = &w[last_key_idx]; 
 		printf("key:\n");
-		for (i = 0; i < 4; i++) {
-			printf("%02x %02x %02x %02x ", d[4*i+0], d[4*i+1], d[4*i+2], d[4*i+3]);
+		for (i = 0; i < AES_SIZE/4 ; i++) {
+			PRINT_COL(i, d);
 		}
 		printf("\n");
 		#endif
@@ -65,7 +67,7 @@ int main() {
 		write_data8(f->f[0], &in,  sizeof(in));
 		write_data8(f->f[1], &key, sizeof(key));
 		write_data8(f->f[2], &out, sizeof(out));
-		write_data8(f->f[3], &w[160], sizeof(key));
+		write_data8(f->f[3], &w[last_key_idx], sizeof(key));
 		
 	}
 	
