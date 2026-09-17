@@ -134,10 +134,22 @@ endgenerate
 
 // MixColumns
 wire skip_mc; 
-wire [COL_W-1:0] col_mc;	
+wire [COL_W-1:0] col_mc;
+wire [COL_W-1:0] col_mc_swap, col_sb_swap;	
+
+assign col_sb_swap[COL_W-1-:8]     = col_sb[8-1:0];
+assign col_sb_swap[COL_W-8-1-:8]   = col_sb[2*8-1-:8];
+assign col_sb_swap[COL_W-2*8-1-:8] = col_sb[3*8-1-:8];
+assign col_sb_swap[COL_W-3*8-1-:8] = col_sb[4*8-1-:8];
+
+assign col_mc[COL_W-1-:8]     = col_mc_swap[8-1:0];
+assign col_mc[COL_W-8-1-:8]   = col_mc_swap[2*8-1-:8];
+assign col_mc[COL_W-2*8-1-:8] = col_mc_swap[3*8-1-:8];
+assign col_mc[COL_W-3*8-1-:8] = col_mc_swap[4*8-1-:8];
+
 mixw m_mixw( 
-	.w_i(col_sb), 
-	.mixw_o(col_mc)
+	.w_i(col_sb_swap), 
+	.mixw_o(col_mc_swap)
 );
 
 localparam KCOL_W = COL_W; 
