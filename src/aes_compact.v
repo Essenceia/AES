@@ -220,7 +220,7 @@ assign kcol1 = key_q[KEY_W-KCOL_W-1-:KCOL_W];
 assign kcol2 = key_q[KEY_W-2*KCOL_W-1-:KCOL_W];
 assign kcol3 = key_q[KEY_W-3*KCOL_W-1-:KCOL_W];
 
-aes_key_first_col m_key_col_first(
+ks_col3 m_key_col_first(
 .key_w3_i  (kcol3),
 .key_rcon_i(rcon_q),
 .key_w3_next_o(kcol3_rcon),
