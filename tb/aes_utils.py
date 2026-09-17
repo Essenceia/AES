@@ -55,6 +55,6 @@ async def enc128(dut,
 			dut.enc_start.value = 1
 		await ClockCycles(dut.clk, 1) 
 	set_enc_invalid_data(dut)
-	await ClockCycles(dut.clk, 16) 
+	await ClockCycles(dut.clk, 64) 
 	
 

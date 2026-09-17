@@ -153,9 +153,9 @@ assign kcol_rd_idx = data_v_i ? data_idx_i: col_cnt_q;
 always @(*) begin
 	case(kcol_rd_idx) 
 		2'd0: key_col = kcol0;
-		2'd1: key_col = kcol0;
-		2'd2: key_col = kcol0;
-		2'd3: key_col = kcol0;
+		2'd1: key_col = kcol1;
+		2'd2: key_col = kcol2;
+		2'd3: key_col = kcol3;
 	endcase
 end
 
