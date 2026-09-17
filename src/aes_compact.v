@@ -32,15 +32,17 @@ localparam RND_CNT_MAX = KEY_W == 128 ? 10 : 14;
 localparam RND_CNT_W = $clog2(RND_CNT_MAX); 
 
 // fsm 
-localparam RND_FIRST = 2'd0;
-localparam RND_INNER = 2'd1;  
-localparam RND_LAST  = 2'd2;  
+localparam RND_FIRST  = 2'd0;
+localparam RND_BUBBLE = 2'd1;
+localparam RND_INNER  = 2'd2;  
+localparam RND_LAST   = 2'd3;  
 
-reg [1:0]           fsm_q; 
-reg [RND_CNT_W-1:0] rnd_q; 
-reg [COL_IDX_W-1:0] col_cnt_q;
-wire                rnd_inc; 
-wire                rnd_last_next; 
+reg [1:0]            fsm_q; 
+reg [RND_CNT_W-1:0]  rnd_q; 
+reg [COL_IDX_W-1:0]  col_cnt_q;
+reg [KCOL_IDX_W-1:0] kcol_cnt_q;
+wire                 rnd_inc; 
+wire                 rnd_last_next; 
 
 always @(posedge clk) begin
 	if (~rst_n) begin
@@ -49,8 +51,12 @@ always @(posedge clk) begin
 	end else begin
 		case(fsm_q) 
 		RND_FIRST: begin	
-			fsm_q <= start_i ? RND_INNER : RND_FIRST; 
-			rnd_q <= start_i ? {{RND_CNT_W-1{1'b0}}, 1'b1}: {RND_CNT_W{1'b0}};
+			fsm_q <= start_i ? RND_BUBBLE : RND_FIRST; 
+			rnd_q <= {RND_CNT_W{1'b0}};
+		end
+		RND_BUBBLE: begin
+			fsm_q <= RND_INNER; 
+			rnd_q <= {{RND_CNT_W-1{1'b0}}, 1'b1}; 
 		end
 		RND_INNER: begin
 			fsm_q <= rnd_last_next ? RND_LAST: RND_INNER;
@@ -59,10 +65,6 @@ always @(posedge clk) begin
 		RND_LAST: begin
 			fsm_q <= rnd_inc ? RND_FIRST: RND_LAST; 
 			rnd_q <= rnd_inc ? {RND_CNT_W{1'b0}}: rnd_q;
-		end
-		default: begin
-			fsm_q <= RND_FIRST; 
-			rnd_q <= {RND_CNT_W{1'b0}};
 		end
 		endcase
 	end
@@ -78,8 +80,13 @@ assign rnd_last_next = rnd_inc & (rnd_q == RND_MAX_MIN2);
 // column selection counter
 assign rnd_inc = col_cnt_q == COL_MAX; 
 always @(posedge clk) 
-	if (~rst_n | (fsm_q == RND_FIRST)) col_cnt_q <= {COL_IDX_W{1'b0}};
+	if (~rst_n | (fsm_q == RND_BUBBLE)) col_cnt_q <= {COL_IDX_W{1'b0}};
 	else col_cnt_q <= col_cnt_q + {{COL_IDX_W-1{1'b0}}, 1'b1};
+
+always @(posedge clk) 
+	if (~rst_n | (fsm_q == RND_FIRST)) kcol_cnt_q <= {KCOL_IDX_W{1'b0}};
+	else kcol_cnt_q <= kcol_cnt_q + {{KCOL_IDX_W-1{1'b0}}, 1'b1};
+
 
 /* 4x4
 Organized by collumns 
@@ -182,10 +189,10 @@ wire [COL_N-1:0]     data_wr_en;
 wire [COL_IDX_W-1:0] col_wr_sel; 
 
 assign col_wr_sel = data_v_i ? data_idx_i: col_cnt_q;
-assign data_wr_en[0] = (col_wr_sel == 2'd0) & (data_v_i | (fsm_q != RND_FIRST)); 
-assign data_wr_en[1] = (col_wr_sel == 2'd1) & (data_v_i | (fsm_q != RND_FIRST)); 
-assign data_wr_en[2] = (col_wr_sel == 2'd2) & (data_v_i | (fsm_q != RND_FIRST)); 
-assign data_wr_en[3] = (col_wr_sel == 2'd3) & (data_v_i | (fsm_q != RND_FIRST)); 
+assign data_wr_en[0] = (col_wr_sel == 2'd0) & (data_v_i | ((fsm_q != RND_FIRST) & (fsm_q != RND_BUBBLE))); 
+assign data_wr_en[1] = (col_wr_sel == 2'd1) & (data_v_i | ((fsm_q != RND_FIRST) & (fsm_q != RND_BUBBLE))); 
+assign data_wr_en[2] = (col_wr_sel == 2'd2) & (data_v_i | ((fsm_q != RND_FIRST) & (fsm_q != RND_BUBBLE))); 
+assign data_wr_en[3] = (col_wr_sel == 2'd3) & (data_v_i | ((fsm_q != RND_FIRST) & (fsm_q != RND_BUBBLE))); 
 
 // sdff to come
 always @(posedge clk) begin 
@@ -197,16 +204,12 @@ end
 
 
 // key schedulaing 
-localparam RCON_MAX = KEY_W == 128 ? 'h36 : KEY_W == 198 ? 'h40 : 'h80;
-localparam RCON_W = $clog2(RCON_MAX);
-localparam RCON_PAD_W = 8 - RCON_W; 
+localparam RCON_W = 8;
 
 reg [KEY_W-1:0]  key_q; 
 
 reg  [RCON_W-1:0] rcon_q;
 wire [RCON_W-1:0] rcon_next;
-
-wire [RCON_PAD_W-1:0] rcon_pad, rcon_pad_next_unused; 
 
 wire [KCOL_W-1:0] kcol0_xor, kcol1_xor, kcol2_xor, kcol3_xor; 
 wire [KCOL_W-1:0] kcol0_next, kcol1_next, kcol2_next, kcol3_next; 
@@ -217,17 +220,16 @@ assign kcol1 = key_q[KEY_W-KCOL_W-1-:KCOL_W];
 assign kcol2 = key_q[KEY_W-2*KCOL_W-1-:KCOL_W];
 assign kcol3 = key_q[KEY_W-3*KCOL_W-1-:KCOL_W];
 
-assign rcon_pad = {RCON_PAD_W{1'b0}};
-
 aes_key_first_col m_key_col_first(
 .key_w3_i  (kcol3),
-.key_rcon_i({rcon_pad, rcon_q}),
+.key_rcon_i(rcon_q),
 .key_w3_next_o(kcol3_rcon),
-.key_rcon_o({rcon_pad_next_unused, rcon_next})
+.key_rcon_o(rcon_next)
 );
 
-always @(posedge clk) 
-	rcon_q <= rcon_next; 
+always @(posedge clk)
+	if(fsm_q == RND_FIRST) rcon_q <= 8'h01;  
+	else if(kcol_cnt_q == COL_MAX) rcon_q <= rcon_next; 
 
 // Cheaper to splurge and just do everything in parallel
 assign kcol0_xor = kcol0 ^ kcol3_rcon; 
@@ -243,7 +245,7 @@ assign kcol3_next = key_v_i? key_i: kcol3_xor;
 wire [KCOL_N-1:0]     key_wr_en; 
 wire [KCOL_IDX_W-1:0] kcol_wr_sel; 
 
-assign kcol_wr_sel  = key_v_i ? key_idx_i : col_cnt_q; 
+assign kcol_wr_sel  = key_v_i ? key_idx_i : kcol_cnt_q; 
 assign key_wr_en[0] = (kcol_wr_sel == 2'd0) & (key_v_i | (fsm_q != RND_FIRST)); 
 assign key_wr_en[1] = (kcol_wr_sel == 2'd1) & (key_v_i | (fsm_q != RND_FIRST)); 
 assign key_wr_en[2] = (kcol_wr_sel == 2'd2) & (key_v_i | (fsm_q != RND_FIRST)); 
