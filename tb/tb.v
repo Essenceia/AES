@@ -27,7 +27,7 @@ wire rst_n;
 localparam KEY_W = `KEY_W; 
 localparam COL_W = 32; 
 localparam COL_IDX_W  = 2;
-localparam KCOL_IDX_W = KEY_W/32;
+localparam KCOL_IDX_W = $clog2(KEY_W/COL_W);
 
 wire enc_start; 
 
