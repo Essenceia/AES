@@ -33,12 +33,25 @@ async def enc128(dut,
 	KEY_W: int = 128):
 	
 	dut.enc_start.value = 0
-	for i in range(4): 
-		data_col = LogicArray.from_bytes(data[i*COL_BYTE_W:(i+1)*COL_BYTE_W], byteorder="big")
-		key_col = LogicArray.from_bytes(key[i*COL_BYTE_W:(i+1)*COL_BYTE_W], byteorder="big") 	
-		cocotb.log.info(f"txt col{i} {hex(data_col)}")	
-		set_all_enc(dut, 1, i, data_col, 1, i, key_col)
-		if i == 3:
+	for i in range(5): 
+		data_v = 1 if i > 0 else 0
+		data_idx = i-1 if i > 0 else LogicArray('XX', Range(1, 'downto', 0)) 
+		key_v = 1 if i < 4 else 0
+		key_idx = i if i < 4 else LogicArray('XX', Range(1, 'downto', 0)) 
+
+		if i > 0:
+			data_col = LogicArray.from_bytes(data[data_idx*COL_BYTE_W:(data_idx+1)*COL_BYTE_W], byteorder="big")
+			cocotb.log.info(f"txt col{i} {hex(data_col)}")	
+		else: 
+			data_col = "X"*COL_W
+
+		if i < 4:
+			key_col = LogicArray.from_bytes(key[key_idx*COL_BYTE_W:(key_idx+1)*COL_BYTE_W], byteorder="big") 	
+		else: 
+			key_col = "X"*COL_W
+
+		set_all_enc(dut, data_v, data_idx, data_col, key_v, key_idx, key_col)
+		if i == 4:
 			dut.enc_start.value = 1
 		await ClockCycles(dut.clk, 1) 
 	set_enc_invalid_data(dut)

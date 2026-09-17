@@ -143,14 +143,21 @@ mixw m_mixw(
 localparam KCOL_W = COL_W; 
 
 wire [KCOL_W-1:0] kcol0, kcol1, kcol2, kcol3; 
-wire [COL_W-1:0] key_col; 
+reg  [COL_W-1:0] key_col; 
 wire [COL_W-1:0] col_rk; 
 wire [COL_W-1:0] col_rk_inner; 
 
-assign key_col = kcol0 & {COL_W{col_cnt_q == 2'd0}} |
-				 kcol1 & {COL_W{col_cnt_q == 2'd1}} |	 
-				 kcol2 & {COL_W{col_cnt_q == 2'd2}} |	 
-				 kcol3 & {COL_W{col_cnt_q == 2'd3}};
+wire [KCOL_IDX_W-1:0] kcol_rd_idx; 
+assign kcol_rd_idx = data_v_i ? data_idx_i: col_cnt_q; 
+
+always @(*) begin
+	case(kcol_rd_idx) 
+		2'd0: key_col = kcol0;
+		2'd1: key_col = kcol0;
+		2'd2: key_col = kcol0;
+		2'd3: key_col = kcol0;
+	endcase
+end
 
 assign skip_mc = (fsm_q == RND_LAST); 
 
