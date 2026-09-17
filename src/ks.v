@@ -1,4 +1,5 @@
 `timescale 1ns / 1ps
+/* verilator lint_off DECLFILENAME */
 
 // module to calcule the first column of the new key
 // implements : rotation + sbox + xor 
@@ -87,3 +88,7 @@ module ks(
 	assign key_rcon_o = key_rcon_next;
 
 endmodule // aes_key_shedualing
+
+
+/* verilator lint_on DECLFILENAME */
+

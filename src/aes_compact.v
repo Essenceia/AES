@@ -46,7 +46,8 @@ always @(posedge clk) begin
 	if (~rst_n) begin
 		fsm_q <= RND_FIRST; 
 		rnd_q <= {RND_CNT_W{1'b0}}; 
-	end else case(fsm_q) 
+	end else begin
+		case(fsm_q) 
 		RND_FIRST: begin	
 			fsm_q <= start_i ? RND_INNER : RND_FIRST; 
 			rnd_q <= start_i ? {{RND_CNT_W-1{1'b0}}, 1'b1}: {RND_CNT_W{1'b0}};
@@ -59,12 +60,22 @@ always @(posedge clk) begin
 			fsm_q <= rnd_inc ? RND_FIRST: RND_LAST; 
 			rnd_q <= rnd_inc ? {RND_CNT_W{1'b0}}: rnd_q;
 		end
-	endcase
+		default: begin
+			fsm_q <= RND_FIRST; 
+			rnd_q <= {RND_CNT_W{1'b0}};
+		end
+		endcase
 	end
 end
 
-// column selection counter
+/* verilator lint_off WIDTHTRUNC */
 localparam [COL_IDX_W-1:0] COL_MAX =  COL_N - 1; 
+localparam [RND_CNT_W-1:0] RND_MAX_MIN2 = RND_CNT_MAX - 2; 
+/* verilator lint_on WIDTHTRUNC */
+
+assign rnd_last_next = rnd_inc & (rnd_q == RND_MAX_MIN2);  
+
+// column selection counter
 assign rnd_inc = col_cnt_q == COL_MAX; 
 always @(posedge clk) 
 	if (~rst_n | (fsm_q == RND_FIRST)) col_cnt_q <= {COL_IDX_W{1'b0}};
@@ -100,19 +111,20 @@ assign col2 = {data_sr[TXT_W-1-2*8-:8], data_sr[TXT_W-ROW_W-2*8-1-:8], data_sr[T
 assign col3 = {data_sr[TXT_W-1-3*8-:8], data_sr[TXT_W-ROW_W-3*8-1-:8], data_sr[TXT_W-2*ROW_W-3*8-1-:8], data_sr[TXT_W-3*ROW_W-3*8-1-:8]};
 
 reg [COL_W-1:0]     col_sr;
-always @(*) 
+always @(*) begin 
 	case(col_cnt_q) 
-		2'd0: col_sr <= col0;
-		2'd1: col_sr <= col1;
-		2'd2: col_sr <= col2;
-		2'd3: col_sr <= col3;
+		2'd0: col_sr = col0;
+		2'd1: col_sr = col1;
+		2'd2: col_sr = col2;
+		2'd3: col_sr = col3;
 	endcase
+end
 
 // Sbox
 wire [COL_W-1:0] col_sb;
 genvar sb_i;
 generate 
-for (genvar sb_i=0; sb_i<4; sb_i=sb_i+1) begin : loop_gen_sb_i				
+for (sb_i=0; sb_i<4; sb_i=sb_i+1) begin : loop_gen_sb_i				
 	sbox m_sbox(
 		.data_i( col_sr[(sb_i+1)*8-1-:8]),
 		.data_o( col_sb[(sb_i+1)*8-1-:8])
@@ -140,7 +152,7 @@ assign key_col = kcol0 & {COL_W{col_cnt_q == 2'd0}} |
 				 kcol2 & {COL_W{col_cnt_q == 2'd2}} |	 
 				 kcol3 & {COL_W{col_cnt_q == 2'd3}};
 
-assign skip_mc = {fsm_q == RND_LAST); 
+assign skip_mc = (fsm_q == RND_LAST); 
 
 assign col_rk_inner = data_v_i ? data_i:
 					  skip_mc  ? col_sb: col_mc;

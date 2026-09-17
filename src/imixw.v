@@ -1,4 +1,6 @@
 `timescale 1ns / 1ps
+/* verilator lint_off DECLFILENAME */
+
 // gm2
 module gm2(
 	input  [7:0] op_i,
@@ -153,4 +155,5 @@ module imixw(
 endmodule
 
 
+/* verilator lint_on DECLFILENAME */
 

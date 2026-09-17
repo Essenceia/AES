@@ -25,6 +25,7 @@
 //     p_key_0[3] ^= aes_sbox(p_key_m1[0]);
 // }
 
+/* verilator lint_off DECLFILENAME */
 module aes_inv_key_first_col(
 	input  wire [31:0] key_w3_i,
 	input  wire [7:0]  key_rcon_i,
@@ -104,5 +105,6 @@ module iks(
 	assign key_rcon_o = key_rcon_next;
 
 endmodule // aes_key_shedualing
+/* verilator lint_on DECLFILENAME */
 
 

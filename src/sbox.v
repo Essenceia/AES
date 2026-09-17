@@ -4,12 +4,20 @@ module sbox(
     output [7:0] data_o
     );
 
+/* verilator lint_off UNOPTFLAT */
+/* 
+Lint analyses circular dependancies at the array level, 
+not the ellement level resulting in it miss-flagging a circular 
+dependancy where there is none. 
+*/
+/* verilator lint_off ASCRANGE */
 	wire[0:7] s, x;
+/* verilator lint_on ASCRANGE */
 
 	wire [21:1] y;
 	wire [67:0] t;
 	wire [17:0] z;
-	
+/* verilator lint_on UNOPTFLAT */
 	
 	// input
 	assign x = data_i;

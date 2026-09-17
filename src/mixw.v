@@ -1,8 +1,10 @@
 `timescale 1ns / 1ps
-//----------------------------------------------------------------
-// Mix column : Galois Field Arithmetic 
-//----------------------------------------------------------------
- 
+/* verilator lint_off DECLFILENAME */
+
+/*
+	Mix column : Galois Field Arithmetic 
+*/
+
 module aes_gm2(
 	input  [7:0] op_i,
 	output [7:0] gm2_o
@@ -77,3 +79,6 @@ endmodule // gm2
 	assign mixw_o = {mb3, mb2, mb1, mb0};
  
  endmodule // mixw
+
+/* verilator lint_on DECLFILENAME */
+
