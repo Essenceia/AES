@@ -2,6 +2,7 @@
 
 `default_nettype none
 
+// Focusing on supporting only AES-128 
 module aes_compact #(
 	localparam TXT_W = 128, // regardless of cipher
 	localparam COL_N = 4,
@@ -26,6 +27,48 @@ module aes_compact #(
 	output wire             res_v_o,  // result valid
 	output wire [TXT_W-1:0] res_o     // result
 );
+// not implementing 196
+localparam RND_CNT_MAX = KEY_W == 128 ? 10 : 14;
+localparam RND_CNT_W = $clog2(RND_CNT_MAX); 
+
+// fsm 
+localparam RND_FIRST = 2'd0;
+localparam RND_INNER = 2'd1;  
+localparam RND_LAST  = 2'd2;  
+
+reg [1:0]           fsm_q; 
+reg [RND_CNT_W-1:0] rnd_q; 
+reg [COL_IDX_W-1:0] col_cnt_q;
+wire                rnd_inc; 
+wire                rnd_last_next; 
+
+always @(posedge clk) begin
+	if (~rst_n) begin
+		fsm_q <= RND_FIRST; 
+		rnd_q <= {RND_CNT_W{1'b0}}; 
+	end else case(fsm_q) 
+		RND_FIRST: begin	
+			fsm_q <= start_i ? RND_INNER : RND_FIRST; 
+			rnd_q <= start_i ? {{RND_CNT_W-1{1'b0}}, 1'b1}: {RND_CNT_W{1'b0}};
+		end
+		RND_INNER: begin
+			fsm_q <= rnd_last_next ? RND_LAST: RND_INNER;
+			rnd_q <= rnd_q + {{RND_CNT_W-1{1'b0}}, rnd_inc}; 
+		end
+		RND_LAST: begin
+			fsm_q <= rnd_inc ? RND_FIRST: RND_LAST; 
+			rnd_q <= rnd_inc ? {RND_CNT_W{1'b0}}: rnd_q;
+		end
+	endcase
+	end
+end
+
+// column selection counter
+localparam [COL_IDX_W-1:0] COL_MAX =  COL_N - 1; 
+assign rnd_inc = col_cnt_q == COL_MAX; 
+always @(posedge clk) 
+	if (~rst_n | (fsm_q == RND_FIRST)) col_cnt_q <= {COL_IDX_W{1'b0}};
+	else col_cnt_q <= col_cnt_q + {{COL_IDX_W-1{1'b0}}, 1'b1};
 
 /* 4x4
 Organized by collumns 
@@ -57,14 +100,8 @@ assign col2 = {data_sr[TXT_W-1-2*8-:8], data_sr[TXT_W-ROW_W-2*8-1-:8], data_sr[T
 assign col3 = {data_sr[TXT_W-1-3*8-:8], data_sr[TXT_W-ROW_W-3*8-1-:8], data_sr[TXT_W-2*ROW_W-3*8-1-:8], data_sr[TXT_W-3*ROW_W-3*8-1-:8]};
 
 reg [COL_W-1:0]     col_sr;
-reg [COL_IDX_W-1:0] col_sel_q;
-
-always @(posedge clk) 
-	if (~rst_n | start_i) col_sel_q <= {COL_IDX_W{1'b0}};
-	else col_sel_q <= col_sel_q + {{COL_IDX_W-1{1'b0}}, 1'b1};
-
 always @(*) 
-	case(col_sel_q) 
+	case(col_cnt_q) 
 		2'd0: col_sr <= col0;
 		2'd1: col_sr <= col1;
 		2'd2: col_sr <= col2;
@@ -84,6 +121,7 @@ end
 endgenerate
 
 // MixColumns
+wire skip_mc; 
 wire [COL_W-1:0] col_mc;	
 mixw m_mixw( 
 	.w_i(col_sb), 
@@ -97,24 +135,33 @@ wire [COL_W-1:0] key_col;
 wire [COL_W-1:0] col_rk; 
 wire [COL_W-1:0] col_rk_inner; 
 
-assign key_col = kcol0 & {COL_W{col_sel_q == 2'd0}} |
-				 kcol1 & {COL_W{col_sel_q == 2'd1}} |	 
-				 kcol2 & {COL_W{col_sel_q == 2'd2}} |	 
-				 kcol3 & {COL_W{col_sel_q == 2'd3}};
+assign key_col = kcol0 & {COL_W{col_cnt_q == 2'd0}} |
+				 kcol1 & {COL_W{col_cnt_q == 2'd1}} |	 
+				 kcol2 & {COL_W{col_cnt_q == 2'd2}} |	 
+				 kcol3 & {COL_W{col_cnt_q == 2'd3}};
 
-assign col_rk_inner = data_v_i ? data_i: col_mc;
+assign skip_mc = {fsm_q == RND_LAST); 
+
+assign col_rk_inner = data_v_i ? data_i:
+					  skip_mc  ? col_sb: col_mc;
 assign col_rk = col_rk_inner ^ key_col; 
 
 // write-back
-wire [COL_N-1:0] data_en; 
+wire [COL_N-1:0]     data_wr_en;
+wire [COL_IDX_W-1:0] col_wr_sel; 
 
-assign data_en = data_v_i ? data_idx_i: col_sel_q;
+assign col_wr_sel = data_v_i ? data_idx_i: col_cnt_q;
+assign data_wr_en[0] = (col_wr_sel == 2'd0) & (data_v_i | (fsm_q != RND_FIRST)); 
+assign data_wr_en[1] = (col_wr_sel == 2'd1) & (data_v_i | (fsm_q != RND_FIRST)); 
+assign data_wr_en[2] = (col_wr_sel == 2'd2) & (data_v_i | (fsm_q != RND_FIRST)); 
+assign data_wr_en[3] = (col_wr_sel == 2'd3) & (data_v_i | (fsm_q != RND_FIRST)); 
+
 // sdff to come
 always @(posedge clk) begin 
-	if (data_en == 2'd0) data_q[TXT_W-1-:COL_W]         <= col_rk; 
-	if (data_en == 2'd1) data_q[TXT_W-COL_W-1-:COL_W]   <= col_rk; 
-	if (data_en == 2'd2) data_q[TXT_W-2*COL_W-1-:COL_W] <= col_rk; 
-	if (data_en == 2'd3) data_q[TXT_W-3*COL_W-1-:COL_W] <= col_rk;
+	if (data_wr_en[0]) data_q[TXT_W-1-:COL_W]         <= col_rk; 
+	if (data_wr_en[1]) data_q[TXT_W-COL_W-1-:COL_W]   <= col_rk; 
+	if (data_wr_en[2]) data_q[TXT_W-2*COL_W-1-:COL_W] <= col_rk; 
+	if (data_wr_en[3]) data_q[TXT_W-3*COL_W-1-:COL_W] <= col_rk;
 end
 
 
@@ -162,17 +209,24 @@ assign kcol1_next = key_v_i? key_i: kcol1_xor;
 assign kcol2_next = key_v_i? key_i: kcol2_xor;
 assign kcol3_next = key_v_i? key_i: kcol3_xor;
 
-wire [KCOL_IDX_W-1:0] kcol_en; 
-assign kcol_en = key_v_i ? key_idx_i : col_sel_q; // TODO
+wire [KCOL_N-1:0]     key_wr_en; 
+wire [KCOL_IDX_W-1:0] kcol_wr_sel; 
+
+assign kcol_wr_sel  = key_v_i ? key_idx_i : col_cnt_q; 
+assign key_wr_en[0] = (kcol_wr_sel == 2'd0) & (key_v_i | (fsm_q != RND_FIRST)); 
+assign key_wr_en[1] = (kcol_wr_sel == 2'd1) & (key_v_i | (fsm_q != RND_FIRST)); 
+assign key_wr_en[2] = (kcol_wr_sel == 2'd2) & (key_v_i | (fsm_q != RND_FIRST)); 
+assign key_wr_en[3] = (kcol_wr_sel == 2'd3) & (key_v_i | (fsm_q != RND_FIRST)); 
+
 always @(posedge clk) begin
-	if (kcol_en == 2'd0) key_q[KEY_W-1-:KCOL_W]          <= kcol0_next;
-	if (kcol_en == 2'd1) key_q[KEY_W-KCOL_W-1-:KCOL_W]   <= kcol1_next;
-	if (kcol_en == 2'd2) key_q[KEY_W-2*KCOL_W-1-:KCOL_W] <= kcol2_next;
-	if (kcol_en == 2'd3) key_q[KEY_W-3*KCOL_W-1-:KCOL_W] <= kcol3_next;
+	if (key_wr_en[0]) key_q[KEY_W-1-:KCOL_W]          <= kcol0_next;
+	if (key_wr_en[1]) key_q[KEY_W-KCOL_W-1-:KCOL_W]   <= kcol1_next;
+	if (key_wr_en[2]) key_q[KEY_W-2*KCOL_W-1-:KCOL_W] <= kcol2_next;
+	if (key_wr_en[3]) key_q[KEY_W-3*KCOL_W-1-:KCOL_W] <= kcol3_next;
 end
 
 // tmp 
 assign res_o = data_q; 
-assign res_v_o = 1'b0;
+assign res_v_o = (fsm_q == RND_LAST) & rnd_inc;
 
 endmodule
