@@ -3,6 +3,9 @@ import cocotb
 from cocotb.triggers import FallingEdge, RisingEdge, ClockCycles, with_timeout
 from cocotb.types import Logic, LogicArray, Range 
 
+import Crypto
+from Crypto.Cipher import AES
+
 TXT_W = 128 
 COL_W = 32
 COL_BYTE_W = 4
@@ -55,6 +58,23 @@ async def enc128(dut,
 			dut.enc_start.value = 1
 		await ClockCycles(dut.clk, 1) 
 	set_enc_invalid_data(dut)
-	await ClockCycles(dut.clk, 64) 
+	
+	timeout = 0 
+	res = b''
+	while (timeout < 64): 
+		if (dut.enc_res_v.value == 1):
+			res = dut.enc_res.value	
+			cocotb.log.info(f"res {hex(res)}")
+			break
+	
+		await ClockCycles(dut.clk, 1)
+		timeout=timeout+1
+
+	cipher = AES.new(key, AES.MODE_EAX)
+	ciphertext, tag = cipher.encrypt_and_digest(data)
+
+	cocotb.log.info(f"ciphertext {ciphertext.hex()} tag {tag.hex()}")
+
+ 
 	
 
