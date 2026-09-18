@@ -6,6 +6,8 @@ from cocotb.types import Logic, LogicArray, Range
 import Crypto
 from Crypto.Cipher import AES
 
+import random
+
 TXT_W = 128
 TXT_BYTES_W = 16 
 COL_W = 32
@@ -37,32 +39,46 @@ async def enc128(dut,
 	KEY_W: int = 128):
 	
 	dut.enc_start.value = 0
-	for i in range(5): 
-		data_v = 1 if i > 0 else 0
-		data_idx = i-1 if i > 0 else LogicArray('XX', Range(1, 'downto', 0)) 
-		key_v = 1 if i < 4 else 0
-		key_idx = i if i < 4 else LogicArray('XX', Range(1, 'downto', 0)) 
+	ki = 0 # key collumn next send index 
+	pi = 0 # plain text collumn next send index
 
-		if i > 0:
+	# add random gaps between cycles when writting data, the only 
+	# constraint is that the key collumn must be sent before the 
+	# equivalent data collumn
+	while pi < 4: 
+		
+		# send plain text
+		if (random.randint(0, 100) < 40) and (pi < 4) and (pi < ki):
+			data_v = 1
+			data_idx = pi 
 			data_col = LogicArray.from_bytes(data[data_idx*COL_BYTE_W:(data_idx+1)*COL_BYTE_W], byteorder="big")
-			cocotb.log.info(f"txt col{i} {hex(data_col)}")	
+			pi = pi + 1
+			cocotb.log.info(f"txt col{pi} {hex(data_col)}")	
 		else: 
+			data_v = 0 
+			data_idx = LogicArray('XX', Range(1, 'downto', 0)) 
 			data_col = "X"*COL_W
 
-		if i < 4:
+		# send key
+		if (random.randint(0, 100) < 40) and (ki < 4):
+			key_v = 1
+			key_idx = ki 
 			key_col = LogicArray.from_bytes(key[key_idx*COL_BYTE_W:(key_idx+1)*COL_BYTE_W], byteorder="big") 	
+			ki = ki + 1
 		else: 
+			key_v = 0
+			key_idx = LogicArray('XX', Range(1, 'downto', 0)) 
 			key_col = "X"*COL_W
 
 		set_all_enc(dut, data_v, data_idx, data_col, key_v, key_idx, key_col)
-		if i == 4:
+		if pi == 4:
 			dut.enc_start.value = 1
 		await ClockCycles(dut.clk, 1) 
 	set_enc_invalid_data(dut)
 	
 	timeout = 0 
 	res = b''
-	max_timeout = 50
+	max_timeout = 60
 	while (timeout < max_timeout): 
 		if (dut.enc_res_v.value == 1):
 			res = dut.enc_res.value	
@@ -79,7 +95,7 @@ async def enc128(dut,
 
 	cocotb.log.info(f"expected res 0x{ciphertext.hex()} ({len(ciphertext)})")
 	assert len(ciphertext) == TXT_BYTES_W, f"gotten length {len(ciphertext)}"
-	assert(res == LogicArray.from_bytes(ciphertext, byteorder="big"))
+	assert res == LogicArray.from_bytes(ciphertext, byteorder="big"), f"cipher result missmatch"
 
  
 	
