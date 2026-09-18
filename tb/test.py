@@ -24,9 +24,12 @@ CLK_UNIT="ns"
 CLK_PERIOD=20
 RST_CYCLES=10
 
+TEST_ITER=50
+
 TXT_W = 128
 KEY_W = 128 
 COL_W = 32
+TXT_BYTES_W = 16
 
 def start_clk(dut):
 	clock = Clock(dut.clk, CLK_PERIOD, CLK_UNIT)
@@ -56,13 +59,24 @@ async def rst(dut, ena=1 ):
 
 		
 # test for stupidity, oh yes, very postitive 
+# NIST 197 example cipher result
 @cocotb.test()
 async def simple_test(dut):
 	set_random_seed()
-	await rst(dut) 
-	ptxt = b'\x32\x43\xf6\xa8\x88\x5a\x30\x8d\x31\x31\x98\xa2\xe0\x37\x07\x34'
-	key  = b'\x2b\x7e\x15\x16\x28\xae\xd2\xa6\xab\xf7\x15\x88\x09\xcf\x4f\x3c'
-	await aes_utils.enc128(dut, ptxt, key)
-	await ClockCycles(dut.clk, 10)
+	await rst(dut)
+	for _ in range(2): # test state is correctly wipped between each run 
+		ptxt = b'\x32\x43\xf6\xa8\x88\x5a\x30\x8d\x31\x31\x98\xa2\xe0\x37\x07\x34'
+		key  = b'\x2b\x7e\x15\x16\x28\xae\xd2\xa6\xab\xf7\x15\x88\x09\xcf\x4f\x3c'
+		await aes_utils.enc128(dut, ptxt, key)
+		await ClockCycles(dut.clk, 1)
 
+@cocotb.test()
+async def random_test(dut):
+	set_random_seed() # for reporducibility (so that I have lots of children to spoil at Christmas)
+	await rst(dut)
+	for _ in range(TEST_ITER):
+		ptxt = random.randbytes(TXT_BYTES_W)
+		key = random.randbytes(TXT_BYTES_W)
+		await aes_utils.enc128(dut, ptxt, key)
+	await ClockCycles(dut.clk, 1)
 

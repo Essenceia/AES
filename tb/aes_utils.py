@@ -6,7 +6,8 @@ from cocotb.types import Logic, LogicArray, Range
 import Crypto
 from Crypto.Cipher import AES
 
-TXT_W = 128 
+TXT_W = 128
+TXT_BYTES_W = 16 
 COL_W = 32
 COL_BYTE_W = 4
 
@@ -61,19 +62,24 @@ async def enc128(dut,
 	
 	timeout = 0 
 	res = b''
-	while (timeout < 64): 
+	max_timeout = 50
+	while (timeout < max_timeout): 
 		if (dut.enc_res_v.value == 1):
 			res = dut.enc_res.value	
-			cocotb.log.info(f"res {hex(res)}")
+			cocotb.log.info(f"key 0x{key.hex()} data 0x{data.hex()}\ngotten res   {hex(res)}")
 			break
 	
 		await ClockCycles(dut.clk, 1)
 		timeout=timeout+1
 
-	cipher = AES.new(key, AES.MODE_EAX)
-	ciphertext, tag = cipher.encrypt_and_digest(data)
+	assert timeout < max_timeout, "timeout reached without res_v"
+ 
+	cipher = AES.new(key, AES.MODE_ECB)
+	ciphertext = cipher.encrypt(data)
 
-	cocotb.log.info(f"ciphertext {ciphertext.hex()} tag {tag.hex()}")
+	cocotb.log.info(f"expected res 0x{ciphertext.hex()} ({len(ciphertext)})")
+	assert len(ciphertext) == TXT_BYTES_W, f"gotten length {len(ciphertext)}"
+	assert(res == LogicArray.from_bytes(ciphertext, byteorder="big"))
 
  
 	
