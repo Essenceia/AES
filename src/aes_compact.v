@@ -2,7 +2,47 @@
 
 `default_nettype none
 
-// Focusing on supporting only AES-128 
+/* 
+Compact AES implementation with 32b wide 
+datapath, encrypting 1 plain text collumn per
+cycle. 
+
+For AES-128 it takes: 
+round 0:
+- 1 early cycle to pre-load key collumn ahead of equivalent
+	plain text collumn. This was done to re-use key collumn mux to data paths.
+- 4 cycles to initally load plain txt per 32b chunks
+rounds 1-9:
+- 4 cycles per collumn
+last round: 
+- 4 cycles per collumn 
+So a total of at least 45 cycles.
+
+Given in our target system data is arriving at a rate of 2b per cycle we have
+64 cycles available to us to compute 128, which makes this fast enought for the
+current line rate needs. 
+
+Right now this implementation is focusing on supporting only AES-128
+but I might add AES-256 depending on how much area and time before tapeout
+I have left. 
+
+A hypotetical implementation of AES-256 would take: 
+- 128 bits of extra storage for the key
+- deeper logic level on the key collumn calc to allow computing per cycle : 
+	- 0 : key collum 0 (ks_col_last(col7) xor col0)
+	- 1 : key collumns 1,2,3 (3 lvl deep xor)
+	- 2 : key col4 (sbox(col3) xor col4)
+	- 3 : key collumns 5, 6, 7
+round 0: 
+- 1 extra cycle to preload key col equivalent ahead of plain txt (like AES-128)
+- 4 plain txt (like AES-128)
+- 3 extra cycle to finish loading key columns <---
+rounds 1-13:
+- 4 cycle, 1 per collumn, same as AES-128
+last round: 
+- 4 cycle, 1 per collumn, same as AES-128
+For a total of at least 64 cycles, which is exactly how much time we have. 
+*/
 module aes_compact #(
 	localparam TXT_W = 128, // regardless of cipher
 	localparam COL_N = 4,
