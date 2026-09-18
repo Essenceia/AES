@@ -72,10 +72,10 @@ end
 
 /* verilator lint_off WIDTHTRUNC */
 localparam [COL_IDX_W-1:0] COL_MAX =  COL_N - 1; 
-localparam [RND_CNT_W-1:0] RND_MAX_MIN2 = RND_CNT_MAX - 2; 
+localparam [RND_CNT_W-1:0] RND_MAX_MIN1 = RND_CNT_MAX - 1; 
 /* verilator lint_on WIDTHTRUNC */
 
-assign rnd_last_next = rnd_inc & (rnd_q == RND_MAX_MIN2);  
+assign rnd_last_next = rnd_inc & (rnd_q == RND_MAX_MIN1);  
 
 // column selection counter
 assign rnd_inc = col_cnt_q == COL_MAX; 
