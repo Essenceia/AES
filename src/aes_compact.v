@@ -92,7 +92,8 @@ always @(posedge clk)
 Organized by collumns 
 { col0, col1, col2, col3 }
 */
-reg [TXT_W-1:0] data_q; // 4x4 - organized by columns 
+reg [TXT_W-1:0] data_q; // current rnd data
+reg [TXT_W-1:COL_W] data_cache_q; // next rnd data 
 
 localparam ROW_W = COL_W; 
 
@@ -196,12 +197,20 @@ assign data_wr_en[3] = (col_wr_sel == 2'd3) & (data_v_i | ((fsm_q != RND_FIRST) 
 
 // sdff to come
 always @(posedge clk) begin 
-	if (data_wr_en[0]) data_q[TXT_W-1-:COL_W]         <= col_rk; 
-	if (data_wr_en[1]) data_q[TXT_W-COL_W-1-:COL_W]   <= col_rk; 
-	if (data_wr_en[2]) data_q[TXT_W-2*COL_W-1-:COL_W] <= col_rk; 
-	if (data_wr_en[3]) data_q[TXT_W-3*COL_W-1-:COL_W] <= col_rk;
+	if (data_wr_en[0]) data_cache_q[TXT_W-1-:COL_W]         <= col_rk; 
+	if (data_wr_en[1]) data_cache_q[TXT_W-COL_W-1-:COL_W]   <= col_rk; 
+	if (data_wr_en[2]) data_cache_q[TXT_W-2*COL_W-1-:COL_W] <= col_rk; 
+	if (data_wr_en[3]) data_q                               <= {data_cache_q, col_rk};
 end
 
+wire [COL_W-1:0] debug_data_col0;
+wire [COL_W-1:0] debug_data_col1;
+wire [COL_W-1:0] debug_data_col2;
+wire [COL_W-1:0] debug_data_col3;
+assign debug_data_col0 = data_q[TXT_W-1-:COL_W];
+assign debug_data_col1 = data_q[TXT_W-COL_W-1-:COL_W];
+assign debug_data_col2 = data_q[TXT_W-2*COL_W-1-:COL_W];
+assign debug_data_col3 = data_q[TXT_W-3*COL_W-1-:COL_W];
 
 // key schedulaing 
 localparam RCON_W = 8;
