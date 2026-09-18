@@ -24,7 +24,10 @@ CLK_UNIT="ns"
 CLK_PERIOD=20
 RST_CYCLES=10
 
-TEST_ITER=50
+if "TEST_ITER" in os.environ:
+	TEST_ITER = int(os.environ["TEST_ITER"].lower().strip())
+else:
+	TEST_ITER = 50
 
 TXT_W = 128
 KEY_W = 128 
@@ -68,7 +71,6 @@ async def simple_test(dut):
 		ptxt = b'\x32\x43\xf6\xa8\x88\x5a\x30\x8d\x31\x31\x98\xa2\xe0\x37\x07\x34'
 		key  = b'\x2b\x7e\x15\x16\x28\xae\xd2\xa6\xab\xf7\x15\x88\x09\xcf\x4f\x3c'
 		await aes_utils.enc128(dut, ptxt, key)
-		await ClockCycles(dut.clk, 1)
 
 @cocotb.test()
 async def random_test(dut):
@@ -78,5 +80,4 @@ async def random_test(dut):
 		ptxt = random.randbytes(TXT_BYTES_W)
 		key = random.randbytes(TXT_BYTES_W)
 		await aes_utils.enc128(dut, ptxt, key)
-	await ClockCycles(dut.clk, 1)
 
