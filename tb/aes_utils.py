@@ -38,6 +38,8 @@ async def enc128(dut,
 	key:  bytearray, 
 	KEY_W: int = 128):
 	
+	cocotb.log.info(f"key 0x{key.hex()} data 0x{data.hex()}")
+	
 	dut.enc_start.value = 0
 	ki = 0 # key collumn next send index 
 	pi = 0 # plain text collumn next send index
@@ -53,7 +55,7 @@ async def enc128(dut,
 			data_idx = pi 
 			data_col = LogicArray.from_bytes(data[data_idx*COL_BYTE_W:(data_idx+1)*COL_BYTE_W], byteorder="big")
 			pi = pi + 1
-			cocotb.log.info(f"txt col{pi} {hex(data_col)}")	
+			cocotb.log.debug(f"txt col{pi} {hex(data_col)}")	
 		else: 
 			data_v = 0 
 			data_idx = LogicArray('XX', Range(1, 'downto', 0)) 
@@ -78,11 +80,10 @@ async def enc128(dut,
 	
 	timeout = 0 
 	res = b''
-	max_timeout = 60
+	max_timeout = 64 - 5 # max timeout time is 64 cycles to get data and we need at least 5 cycle to send data
 	while (timeout < max_timeout): 
 		if (dut.enc_res_v.value == 1):
 			res = dut.enc_res.value	
-			cocotb.log.info(f"key 0x{key.hex()} data 0x{data.hex()}\ngotten res   {hex(res)}")
 			break
 	
 		await ClockCycles(dut.clk, 1)
@@ -93,10 +94,8 @@ async def enc128(dut,
 	cipher = AES.new(key, AES.MODE_ECB)
 	ciphertext = cipher.encrypt(data)
 
-	cocotb.log.info(f"expected res 0x{ciphertext.hex()} ({len(ciphertext)})")
 	assert len(ciphertext) == TXT_BYTES_W, f"gotten length {len(ciphertext)}"
-	assert res == LogicArray.from_bytes(ciphertext, byteorder="big"), f"cipher result missmatch"
-
+	assert res == LogicArray.from_bytes(ciphertext, byteorder="big"), f"cipher result missmatch\nexpected res 0x{ciphertext.hex()} ({len(ciphertext)})"
  
 	
 
