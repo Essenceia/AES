@@ -28,6 +28,7 @@ localparam KEY_W = `KEY_W;
 localparam COL_W = 32; 
 localparam COL_IDX_W  = 2;
 localparam KCOL_IDX_W = $clog2(KEY_W/COL_W);
+localparam TXT_W = 128; 
 
 wire enc_start; 
 
@@ -40,7 +41,7 @@ wire [KCOL_IDX_W-1:0] enc_key_idx;
 wire [COL_W-1:0]      enc_key; 
 
 wire             enc_res_v; 
-wire [COL_W-1:0] enc_res; 
+wire [TXT_W-1:0] enc_res; 
 
 aes_compact #(.KEY_W(KEY_W)) m_enc(
 	.clk     (clk), 
