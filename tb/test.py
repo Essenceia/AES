@@ -13,6 +13,7 @@ import asyncio
 import time
 
 import aes_utils
+import ghash_utils 
 
 from array import array 
 
@@ -57,6 +58,7 @@ async def rst(dut, ena=1 ):
 	await ClockCycles(dut.clk, RST_CYCLES)
 	dut.enc_data_v.value = 0
 	dut.enc_key_v.value = 0
+	ghash_utils.set_enc_invalid_data(dut)
 	dut.rst_n.value = 1
 	await ClockCycles(dut.clk, 20)
 
@@ -81,3 +83,12 @@ async def random_test(dut):
 		key = random.randbytes(TXT_BYTES_W)
 		await aes_utils.enc128(dut, ptxt, key)
 
+@cocotb.test()
+async def ghash_simple_test(dut): 
+	set_random_seed()
+	await rst(dut) 
+	ptxt = b'\x32\x43\xf6\xa8\x88\x5a\x30\x8d\x31\x31\x98\xa2\xe0\x37\x07\x34'
+	key  = b'\x2b\x7e\x15\x16\x28\xae\xd2\xa6\xab\xf7\x15\x88\x09\xcf\x4f\x3c'
+	await ghash_utils.hash(dut, ptxt, key)
+
+	ghash_utils

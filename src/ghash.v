@@ -3,19 +3,6 @@ Copyright Julia Desmazes, 2026, all rights reserved
 
 Ghash function needs 64 cycles to hash each new data block 
 */
-
-function [127:0] VI_INC1 (input [127:0] vi_prev);
-begin 
-	// (Vi >> 1) ^ R with R implied
-	assign VI_INC1[127]     = vi_prev[0];
-	assign VI_INC1[126]     = vi_prev[127] ^ vi_prev[0];
-	assign VI_INC1[125]     = vi_prev[126] ^ vi_prev[0];
-	assign VI_INC1[124:121] = vi_prev[125:122];
-	assign VI_INC1[120]     = vi_prev[121] ^ vi_prev[0];
-	assign VI_INC1[119:0]   = vi_prev[120:1];
-end
-endfunction
-
 module ghash #(
 	parameter W = 128
 )(
@@ -46,8 +33,9 @@ localparam [W-1:0] R = {8'b11100001, {120{1'b0}}};
 // fsm 
 localparam IDLE =  1'd0;
 localparam BLOCK = 1'd1;
-reg  fsm_q;
-wire block_finished; 
+reg             fsm_q;
+reg [CNT_W-1:0] cnt_q;
+wire            block_finished; 
 
 always @(posedge clk) begin
 	if (~rst_n | new_v_i ) begin
@@ -97,11 +85,15 @@ always @(posedge clk) begin
 		v_q <= v0_q;
 	end else begin
 		z_q <= zi_inc; 
-		v_q <= vi_ic;
+		v_q <= vi_inc;
 	end
 end
-assign vi     = VI_INC1(v_q);
-assign vi_inc = VI_INC1(vi);
+
+ghash_v_partial_dot_porduct m_vi(
+	.vi_i(v_q), .vi_inc_o(vi));
+
+ghash_v_partial_dot_porduct m_vi_inc(
+	.vi_i(vi), .vi_inc_o(vi_inc));
 
 assign zi     = z_q ^ ({W{xi}} & vi);
 assign zi_inc = zi ^ ({W{xi_inc}} & vi_inc);

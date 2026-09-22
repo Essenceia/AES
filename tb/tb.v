@@ -60,4 +60,27 @@ aes_compact #(.KEY_W(KEY_W)) m_enc(
 	.res_o   (enc_res)
 );
 
+// ghash 
+localparam GHASH_W = 128; 
+wire               gh_new_v; 
+wire               gh_data_v; 
+wire [GHASH_W-1:0] gh_data; 
+wire               gh_key_v;
+wire [GHASH_W-1:0] gh_key;
+wire               gh_res_v;
+wire [GHASH_W-1:0] gh_res;
+
+ghash m_ghash(
+.clk  (clk), 
+.rst_n(rst_n), 
+
+.new_v_i (gh_new_v), 
+.data_v_i(gh_data_v), 
+.data_i  (gh_data), 
+.h_v_i   (gh_key_v), 
+.h_i     (gh_key), 
+.res_v_o (gh_res_v),
+.res_o   (gh_res)
+);
+
 endmodule
