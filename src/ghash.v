@@ -48,8 +48,8 @@ always @(posedge clk) begin
 				cnt_q <= {CNT_W{1'b0}};	
 			end
 			BLOCK: begin
-				fsm_q <= block_finished ? IDLE: BLOCK; 
-				cnt_q <= cnt_next; 
+				fsm_q <= block_finished ? (data_v_i ? BLOCK : IDLE): BLOCK; 
+				cnt_q <= data_v_i ? {CNT_W{1'b0}}: cnt_next; 
 			end
 		endcase
 	end

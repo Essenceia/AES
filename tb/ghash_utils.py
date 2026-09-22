@@ -29,18 +29,17 @@ def __ghash_gf_multiply(x: int, y: int) -> int:
 			v = (v >> 1) ^ GHASH_POLY
 		else:
 			v = v >> 1
-		cocotb.log.info(f"{128-i} z {z:#0{34}x} v {v:#0{34}x}")
+		cocotb.log.debug(f"{128-i} z {z:#0{34}x} v {v:#0{34}x}")
 
+	cocotb.log.info(f"GHASH block result z {z:#0{34}x}")
 	return z
 
 def __ghash(h_key: bytes, payload: bytes) -> bytes:
 	assert len(payload) % 16 == 0, f"expencted length payload to be a multiple of 16 got {len(payload)}"
-	assert(len(h_key) % 16 == 0)
+	assert len(h_key) == 16, f"expencted length key of 16 got {len(h_key)}"
 	
-	# Parse the Hash Key (H) into an integer
 	h_int = int.from_bytes(h_key, 'big')
 	
-	# 3. Main GHASH processing loop
 	tag_accum = 0
 	for i in range(0, len(payload), 16):
 		block = int.from_bytes(payload[i:i+16], 'big')
@@ -125,7 +124,7 @@ async def hash(dut,
 
 	assert timeout < max_timeout, "timeout reached without res_v"
 
-	ghash_expected = __ghash(data, key) 
+	ghash_expected = __ghash(key, data) 
 	cocotb.log.info(f"expected 0x{ghash_expected.hex()}\ngotten {hex(res)}") 
 #	cipher = AES.new(key, AES.MODE_ECB)
 #	ciphertext = cipher.encrypt(data)
