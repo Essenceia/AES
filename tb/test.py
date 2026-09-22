@@ -101,3 +101,14 @@ async def ghash_random_single_block_test(dut):
 		key = random.randbytes(16)
 		await ghash_utils.hash(dut, ptxt, key)
 
+@cocotb.test()
+async def ghash_multi_block_test(dut): 
+	set_random_seed()
+	await rst(dut)
+	block_cnt = 4
+	for i in range(0, TEST_ITER): 
+		ptxt = i.to_bytes(1, 'big') + b'\x00'*(15) + b'\x00'*(16*4)
+		key = i.to_bytes(1, 'big') + b'\x00'*15
+		await ghash_utils.hash(dut, ptxt, key)
+
+

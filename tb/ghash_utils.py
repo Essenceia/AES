@@ -34,10 +34,7 @@ def __ghash_gf_multiply(x: int, y: int) -> int:
 	return z
 
 def __ghash(h_key: bytes, payload: bytes) -> bytes:
-	"""
-	Computes the GHASH authentication tag over Associated Data (AAD) and Ciphertext.
-	"""
-	assert(len(payload) % 16 == 0)
+	assert len(payload) % 16 == 0, f"expencted length payload to be a multiple of 16 got {len(payload)}"
 	assert(len(h_key) % 16 == 0)
 	
 	# Parse the Hash Key (H) into an integer
@@ -71,8 +68,11 @@ async def hash(dut,
 	data: bytearray, \
 	key:  bytearray):
 	
-	cocotb.log.info(f"partial key 0x{key.hex()} data 0x{data.hex()}")
+
+	assert len(data) % 16 == 0
+	max_pi = int(len(data) / 16)
 	
+	cocotb.log.info(f"partial key 0x{key.hex()} data 0x{data.hex()} (blocks {max_pi})")
 	
 	ki = 0 # key block sent
 	pi = 0 # plain text block sent
@@ -80,17 +80,19 @@ async def hash(dut,
 	# add random gaps between cycles when writting data, the only 
 	# constraint is that the key collumn must be sent before the 
 	# equivalent data collumn
-	while pi < 1: 
+	while pi < max_pi: 
 		
 		# send plain text
-		if (random.randint(0, 100) < 40) and (pi < ki):
+		if (random.randint(0, 100) < 40) and (ki > 0):
 			data_v = 1
-			data_col = LogicArray.from_bytes(data, byteorder="big")
+			data_col = LogicArray.from_bytes(data[pi*16:(pi+1)*16], byteorder="big")
 			pi = pi + 1
-			cocotb.log.debug(f"txt col{pi} {hex(data_col)}")	
+			cocotb.log.debug(f"txt col{pi} {hex(data_col)}")
+			send = True	
 		else: 
 			data_v = 0 
 			data_col = "X"*GHASH_W
+			send = False
 
 		# send key
 		if (random.randint(0, 100) < 40) and (ki < 1):
@@ -102,7 +104,12 @@ async def hash(dut,
 			key_col = "X"*GHASH_W
 
 		set_all_enc(dut, data_v, data_col, key_v, key_col)
-		await ClockCycles(dut.clk, 1) 
+		if send:
+			await ClockCycles(dut.clk, 1) 
+			set_enc_invalid_data(dut)
+			await ClockCycles(dut.clk, 63) 
+		else:
+			await ClockCycles(dut.clk, 1) 
 	set_enc_invalid_data(dut)
 	
 	timeout = 0 
