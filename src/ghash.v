@@ -9,14 +9,13 @@ module ghash #(
 	input wire clk, 
 	input wire rst_n, 
 
-	input wire         new_v_i, // reset ghash, new hash
 	// X
 	input wire         data_v_i, // new block can only be provided every 64 cycles
 	input wire [W-1:0] data_i, 
 
 	// sub key, H stays constant for the entire hash
 	// is providable before the first data block
-	input wire         h_v_i,
+	input wire         h_v_i, // causes reset of the ghash block 
 	input wire [W-1:0] h_i, 
 	
 	output wire         res_v_o,
@@ -83,7 +82,7 @@ always @(posedge clk)
 wire [W-1:0] vi, vi_inc, zi, zi_inc; 
 
 always @(posedge clk)
-	if (new_v_i | ~rst_n)    z_q <= {W{1'b0}};
+	if (h_v_i | ~rst_n)    z_q <= {W{1'b0}};
 	else if (fsm_q == BLOCK) z_q <= zi_inc; 
 
 always @(posedge clk) 

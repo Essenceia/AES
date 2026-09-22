@@ -21,16 +21,15 @@ def __ghash_gf_multiply(x: int, y: int) -> int:
 
 	# Process bits from most-significant to least-significant
 	for i in range(127, -1, -1):
-		cocotb.log.info(f"{128-i} x {(x>>i):#0{32}x} match {(x>>i) & i} - i {i}")
+		cocotb.log.debug(f"{128-i} x {(x>>i):#0{34}x} match {(x>>i) & i} - i {i}")
 		if (x >> i) & 1:
-			cocotb.log.info(f"{128-i} x {(x>>i):#0{32}x}")
+			cocotb.log.debug(f"{128-i} x {(x>>i):#0{34}x}")
 			z ^= v
 		if v & 1:
 			v = (v >> 1) ^ GHASH_POLY
 		else:
 			v = v >> 1
-		pad = 32
-		cocotb.log.info(f"{128-i} z {z:#0{pad}x} v {v:#0{pad}x}")
+		cocotb.log.info(f"{128-i} z {z:#0{34}x} v {v:#0{34}x}")
 
 	return z
 
@@ -64,7 +63,6 @@ def set_all_enc(dut, \
 	dut.gh_key.value = key
 
 def set_enc_invalid_data(dut): 
-	dut.gh_new_v.value = 0
 	set_all_enc(dut, \
 		0, "X"*GHASH_W, \
 		0, "X"*GHASH_W)
@@ -75,7 +73,6 @@ async def hash(dut,
 	
 	cocotb.log.info(f"partial key 0x{key.hex()} data 0x{data.hex()}")
 	
-	dut.gh_new_v.value = 0
 	
 	ki = 0 # key block sent
 	pi = 0 # plain text block sent
@@ -105,8 +102,6 @@ async def hash(dut,
 			key_col = "X"*GHASH_W
 
 		set_all_enc(dut, data_v, data_col, key_v, key_col)
-		if pi == 1:
-			dut.gh_new_v.value = 1
 		await ClockCycles(dut.clk, 1) 
 	set_enc_invalid_data(dut)
 	
