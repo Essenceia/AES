@@ -21,13 +21,16 @@ def __ghash_gf_multiply(x: int, y: int) -> int:
 
 	# Process bits from most-significant to least-significant
 	for i in range(127, -1, -1):
+		cocotb.log.info(f"{128-i} x {(x>>i):#0{32}x} match {(x>>i) & i} - i {i}")
 		if (x >> i) & 1:
+			cocotb.log.info(f"{128-i} x {(x>>i):#0{32}x}")
 			z ^= v
 		if v & 1:
 			v = (v >> 1) ^ GHASH_POLY
 		else:
-			v >>= 1
-		cocotb.log.info(f"{i} z {hex(z)} v {hex(v)}")
+			v = v >> 1
+		pad = 32
+		cocotb.log.info(f"{128-i} z {z:#0{pad}x} v {v:#0{pad}x}")
 
 	return z
 
