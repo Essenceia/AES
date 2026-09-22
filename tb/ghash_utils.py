@@ -10,6 +10,40 @@ import random
 
 GHASH_W = 128
 
+# code taken from stack overflow https://crypto.stackexchange.com/questions/61347/aes-gcm-conformance-test
+GHASH_POLY = 0xE1000000000000000000000000000000
+
+def __ghash_gf_multiply(x: int, y: int) -> int:
+	res = 0
+	# Process bits from most-significant to least-significant
+	for i in range(127, -1, -1):
+		if (y >> i) & 1:
+			res ^= x
+		if x & 1:
+			x = (x >> 1) ^ GHASH_POLY
+		else:
+			x >>= 1
+	return res
+
+def __ghash(h_key: bytes, payload: bytes) -> bytes:
+	"""
+	Computes the GHASH authentication tag over Associated Data (AAD) and Ciphertext.
+	"""
+	assert(len(payload) % 16 == 0)
+	assert(len(h_key) % 16 == 0)
+	
+	# Parse the Hash Key (H) into an integer
+	h_int = int.from_bytes(h_key, 'big')
+	
+	# 3. Main GHASH processing loop
+	tag_accum = 0
+	for i in range(0, len(payload), 16):
+		block = int.from_bytes(payload[i:i+16], 'big')
+		tag_accum ^= block
+		tag_accum = __ghash_gf_multiply(tag_accum, h_int)
+		
+	return tag_accum.to_bytes(16, 'big')
+
 def set_all_enc(dut, \
 	data_v: Logic, \
 	data: LogicArray, \
@@ -69,8 +103,8 @@ async def hash(dut,
 	
 	timeout = 0 
 	res = b''
-	max_timeout = 64
-	while (timeout < max_timeout): 
+	max_timeout = 64 + 5 
+	while (timeout <= max_timeout): 
 		if (dut.gh_res_v.value == 1):
 			res = dut.gh_res.value	
 			break
@@ -79,7 +113,9 @@ async def hash(dut,
 		timeout=timeout+1
 
 	assert timeout < max_timeout, "timeout reached without res_v"
- 
+
+	ghash_expected = __ghash(key, data) 
+	cocotb.log.info(f"expected 0x{ghash_expected.hex()}\ngotten {hex(res)}") 
 #	cipher = AES.new(key, AES.MODE_ECB)
 #	ciphertext = cipher.encrypt(data)
 #
