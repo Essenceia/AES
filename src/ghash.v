@@ -3,6 +3,19 @@ Copyright Julia Desmazes, 2026, all rights reserved
 
 Ghash function needs 64 cycles to hash each new data block 
 */
+
+function [127:0] VI_INC1 (input [127:0] vi_prev);
+begin 
+	// (Vi >> 1) ^ R with R implied
+	assign VI_INC1[127]     = vi_prev[0];
+	assign VI_INC1[126]     = vi_prev[127] ^ vi_prev[0];
+	assign VI_INC1[125]     = vi_prev[126] ^ vi_prev[0];
+	assign VI_INC1[124:121] = vi_prev[125:122];
+	assign VI_INC1[120]     = vi_prev[121] ^ vi_prev[0];
+	assign VI_INC1[119:0]   = vi_prev[120:1];
+end
+endfunction
+
 module ghash #(
 	parameter W = 128
 )(
@@ -41,7 +54,7 @@ always @(posedge clk) begin
 		fsm_q <= IDLE; 
 		cnt_q <= {CNT_W{1'b0}};
 	end else begin
-		case(fsm_q) begin
+		case(fsm_q)
 			IDLE: begin
 				fsm_q <= data_v_i ? BLOCK : IDLE; 
 				cnt_q <= {CNT_W{1'b0}};	
@@ -65,7 +78,7 @@ reg [W-1:0] x_q;
 wire xi, xi_inc; 
 always @(posedge clk) 
 	if (data_v_i) x_q <= data_i; // { x0, x1, x2 ... x127}
-	else x_q <= {x_q[W-SHIFT_N-1:0], {SHIFT_N{1'bx}}; // implied fsm_q == BLOCK 
+	else x_q <= {x_q[W-SHIFT_N-1:0], {SHIFT_N{1'bx}} }; // implied fsm_q == BLOCK 
 	
 assign xi = x_q[W-1];
 assign xi_inc = x_q[W-2];
@@ -78,7 +91,7 @@ always @(posedge clk)
 reg [W-1:0]  v_q, z_q;
 wire [W-1:0] vi, vi_inc, zi, zi_inc; 
 
-always @(posedge clk) 
+always @(posedge clk) begin 
 	if (data_v_i) begin
 		z_q <= {W{1'b0}};
 		v_q <= v0_q;
@@ -87,19 +100,6 @@ always @(posedge clk)
 		v_q <= vi_ic;
 	end
 end
-
-function [W-1:0] VI_INC1 (input wire [W-1:0] vi_prev);
-begin 
-	// (Vi >> 1) ^ R with R implied
-	assign VI_INC1[127]     = vi_prev[0];
-	assign VI_INC1[126]     = vi_prev[127] ^ vi_prev[0];
-	assign VI_INC1[125]     = vi_prev[126] ^ vi_prev[0];
-	assign VI_INC1[124:121] = vi_prev[125:122];
-	assign VI_INC1[120]     = vi_prev[121] ^ vi_prev[0];
-	assign VI_INC1[119:0]   = vi_prev[120:1];
-end
-endfunction
-
 assign vi     = VI_INC1(v_q);
 assign vi_inc = VI_INC1(vi);
 
@@ -109,3 +109,5 @@ assign zi_inc = zi ^ ({W{xi_inc}} & vi_inc);
 // output 
 assign res_v_o = res_v_q; 
 assign res_o   = z_q;
+
+endmodule
