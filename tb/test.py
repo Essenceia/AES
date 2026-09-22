@@ -84,11 +84,20 @@ async def random_test(dut):
 		await aes_utils.enc128(dut, ptxt, key)
 
 @cocotb.test()
-async def ghash_simple_test(dut): 
+async def ghash_single_block_test(dut): 
 	set_random_seed()
 	await rst(dut)
 	for i in range(0, TEST_ITER): 
 		ptxt = i.to_bytes(1, 'big') + b'\x00'*15
 		key = i.to_bytes(1, 'big') + b'\x00'*15
+		await ghash_utils.hash(dut, ptxt, key)
+
+@cocotb.test()
+async def ghash_random_single_block_test(dut): 
+	set_random_seed()
+	await rst(dut)
+	for i in range(0, TEST_ITER): 
+		ptxt = random.randbytes(16)
+		key = random.randbytes(16)
 		await ghash_utils.hash(dut, ptxt, key)
 
