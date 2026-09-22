@@ -110,5 +110,6 @@ async def ghash_multi_block_test(dut):
 		ptxt = i.to_bytes(1, 'big') + b'\x00'*(15) + b'\x00'*(16*4)
 		key = i.to_bytes(1, 'big') + b'\x00'*15
 		await ghash_utils.hash(dut, ptxt, key)
+		await ClockCycles(dut.clk, 1) # for readability
 
 
