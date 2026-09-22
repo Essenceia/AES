@@ -90,14 +90,16 @@ always @(posedge clk)
 	if (data_v_i ) v_q <= v0_q;
 	else           v_q <= vi_inc;
 
+// V_(i+1) = V_i[0] ? (V_i >> 1)^R : V_i >> 1
 ghash_v_partial_dot_porduct m_vi(
 	.vi_i(v_q), .vi_inc_o(vi));
 
 ghash_v_partial_dot_porduct m_vi_inc(
 	.vi_i(vi), .vi_inc_o(vi_inc));
 
-assign zi     = z_q ^ ({W{xi}} & vi);
-assign zi_inc = zi ^ ({W{xi_inc}} & vi_inc);
+// Z_(i+1) = x_i ? Z_i ^ V_i : Z_i
+assign zi     = z_q ^ ({W{xi}} & v_q);
+assign zi_inc = zi ^ ({W{xi_inc}} & vi);
 
 // output 
 assign res_v_o = res_v_q; 

@@ -14,16 +14,22 @@ GHASH_W = 128
 GHASH_POLY = 0xE1000000000000000000000000000000
 
 def __ghash_gf_multiply(x: int, y: int) -> int:
-	res = 0
+	cocotb.log.info(f"Galois dot product inputs\nX {hex(x)}\nY {hex(y)}")
+
+	z = 0
+	v = y
+
 	# Process bits from most-significant to least-significant
 	for i in range(127, -1, -1):
-		if (y >> i) & 1:
-			res ^= x
-		if x & 1:
-			x = (x >> 1) ^ GHASH_POLY
+		if (x >> i) & 1:
+			z ^= v
+		if v & 1:
+			v = (v >> 1) ^ GHASH_POLY
 		else:
-			x >>= 1
-	return res
+			v >>= 1
+		cocotb.log.info(f"{i} z {hex(z)} v {hex(v)}")
+
+	return z
 
 def __ghash(h_key: bytes, payload: bytes) -> bytes:
 	"""
@@ -114,13 +120,12 @@ async def hash(dut,
 
 	assert timeout < max_timeout, "timeout reached without res_v"
 
-	ghash_expected = __ghash(key, data) 
+	ghash_expected = __ghash(data, key) 
 	cocotb.log.info(f"expected 0x{ghash_expected.hex()}\ngotten {hex(res)}") 
 #	cipher = AES.new(key, AES.MODE_ECB)
 #	ciphertext = cipher.encrypt(data)
 #
-#	assert len(ciphertext) == TXT_BYTES_W, f"gotten length {len(ciphertext)}"
-#	assert res == LogicArray.from_bytes(ciphertext, byteorder="big"), f"cipher result missmatch\nexpected res 0x{ciphertext.hex()} ({len(ciphertext)})"
+	assert res == LogicArray.from_bytes(ghash_expected, byteorder="big"), f"cipher result missmatch\nexpected 0x{ghash_expected.hex()}\ngotten   {hex(res)}"
  
 	
 
