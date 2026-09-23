@@ -82,7 +82,7 @@ always @(posedge clk)
 wire [W-1:0] vi, vi_inc, zi, zi_inc; 
 
 always @(posedge clk)
-	if (h_v_i | ~rst_n)    z_q <= {W{1'b0}};
+	if (h_v_i | data_v_i | ~rst_n) z_q <= {W{1'b0}};
 	else if (fsm_q == BLOCK) z_q <= zi_inc; 
 
 always @(posedge clk) 

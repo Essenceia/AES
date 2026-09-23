@@ -14,7 +14,7 @@ GHASH_W = 128
 GHASH_POLY = 0xE1000000000000000000000000000000
 
 def __ghash_gf_multiply(x: int, y: int) -> int:
-	cocotb.log.info(f"Galois dot product inputs\nX {hex(x)}\nY {hex(y)}")
+	cocotb.log.info(f"Galois dot product inputs\nX {x:#0{34}x}\nY {y:#0{34}x}")
 
 	z = 0
 	v = y
