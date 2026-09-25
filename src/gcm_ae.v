@@ -22,18 +22,15 @@ input wire [SRAM_W-1:0]      sram_data_i,
 // plain text packet
 input wire             tx_v_i,
 input wire [PHY_W-1:0] tx_i, 
-input wire             tx_encypt_i, // indicates this section should be encrypted
-
-
-
+input wire             tx_encypt_i // indicates this section should be encrypted
 );
 // fsm 
-localparam IDLE     = 'd0; 
-localparam SREAM_A  = 'd1; 
-localparam PAD_A    = 'd;
-localparam STREAM_C = 'd2; 
-localparam PAD_C    = 'd2; 
-localparam GHASH_SIZES = 'd; 
+localparam IDLE        = 'd0; 
+localparam SREAM_A     = 'd1; 
+localparam PAD_A       = 'd2;
+localparam STREAM_C    = 'd3; 
+localparam PAD_C       = 'd4; 
+localparam GHASH_SIZES = 'd5; 
 
 // key must be fully stored outside of aes as is needs to be refresed before 
 // each block
@@ -45,12 +42,13 @@ always @(posedge clk)
 //
 // inc32
 // aes
-aes_compact m_aes(
-.clk(clk), 
-.rst_n(rst_n), 
 
-.start_i(), // might have to change this
- 
+//aes_compact m_aes(
+//.clk(clk), 
+//.rst_n(rst_n), 
+//
+//.start_i(), // might have to change this
+// WIP  
 
 // preload H 
 wire         gh_res_v; 
