@@ -56,8 +56,8 @@ wire [W-1:0] gh_res;
 ghash #(.SRAM_W(SRAM_W)) m_ghash(
 .clk(clk), 
 .rst_n(rst_n), 
-.data_v_i(), 
-.data_i(), 
+.data_v_i(1'bx), 
+.data_i({128{1'bx}}), 
 .h_v_i(sram_v_i & sram_h_i), 
 .h_i(sram_data_i), 
 .res_v_o(gh_res_v),

@@ -3,7 +3,7 @@ Copyright Julia Desmazes, 2026, all rights reserved
 
 Ghash partial dot product for calculating V_(i+1) based on V_i
 */
-module ghash_v_partial_dot_porduct#(
+module ghash_v_partial_dot_product#(
 	localparam W = 128
 )(
 	input  wire [W-1:0] vi_i,

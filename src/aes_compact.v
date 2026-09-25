@@ -50,8 +50,7 @@ module aes_compact #(
 	localparam COL_IDX_W = $clog2(COL_N),
 	parameter  KEY_W = 128,
 	localparam KCOL_N = KEY_W/COL_W,
-	localparam KCOL_IDX_W = $clog2(KCOL_N),
-	parameter SRAM_W = 8
+	localparam KCOL_IDX_W = $clog2(KCOL_N)
 )(
 	input  wire clk,
 	input  wire rst_n,
@@ -299,10 +298,10 @@ wire [KCOL_N-1:0]     key_wr_en;
 wire [KCOL_IDX_W-1:0] kcol_wr_sel; 
 
 assign kcol_wr_sel  = kcol_cnt_q; 
-assign key_wr_en[0] = ((kcol_wr_sel == 2'd0) & (fsm_q != RND_FIRST)) | key_i; 
-assign key_wr_en[1] = ((kcol_wr_sel == 2'd1) & (fsm_q != RND_FIRST)) | key_i; 
-assign key_wr_en[2] = ((kcol_wr_sel == 2'd2) & (fsm_q != RND_FIRST)) | key_i; 
-assign key_wr_en[3] = ((kcol_wr_sel == 2'd3) & (fsm_q != RND_FIRST)) | key_i; 
+assign key_wr_en[0] = ((kcol_wr_sel == 2'd0) & (fsm_q != RND_FIRST)) | key_v_i; 
+assign key_wr_en[1] = ((kcol_wr_sel == 2'd1) & (fsm_q != RND_FIRST)) | key_v_i; 
+assign key_wr_en[2] = ((kcol_wr_sel == 2'd2) & (fsm_q != RND_FIRST)) | key_v_i; 
+assign key_wr_en[3] = ((kcol_wr_sel == 2'd3) & (fsm_q != RND_FIRST)) | key_v_i; 
 
 always @(posedge clk) begin
 	if (key_wr_en[0]) key_q[KEY_W-1-:KCOL_W]          <= kcol0_next;
