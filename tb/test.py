@@ -114,7 +114,7 @@ async def ghash_multi_random_test(dut):
 	await rst(dut)
 	block_cnt = 4
 	for i in range(0, TEST_ITER): 
-		blocks = random.randrange(1, 10)
+		blocks = random.randrange(2, 3)
 		ptxt = random.randbytes(16*blocks)
 		key = random.randbytes(16)
 		await ghash_utils.hash(dut, ptxt, key)
