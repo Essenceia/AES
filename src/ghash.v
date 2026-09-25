@@ -94,7 +94,7 @@ assign zi_inc[0] = z_q;
 
 genvar i; 
 generate 
-	for(i = 0; i < STEPS_CYCLE_N; i = i + 1) : g_steps
+	for(i = 0; i < STEPS_CYCLE_N; i = i + 1) begin : g_steps
 		assign xi[i] = x_q[W-1-i];
 
 		// V_(i+1) = V_i[0] ? (V_i >> 1)^R : V_i >> 1
