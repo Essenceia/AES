@@ -108,3 +108,16 @@ async def ghash_multi_block_test(dut):
 		await ClockCycles(dut.clk, 1) # for readability
 
 
+@cocotb.test()
+async def ghash_multi_random_test(dut): 
+	set_random_seed()
+	await rst(dut)
+	block_cnt = 4
+	for i in range(0, TEST_ITER): 
+		blocks = random.randrange(1, 10)
+		ptxt = random.randbytes(16*blocks)
+		key = random.randbytes(16)
+		await ghash_utils.hash(dut, ptxt, key)
+		await ClockCycles(dut.clk, 1) # for readability
+
+
