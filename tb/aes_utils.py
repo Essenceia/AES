@@ -31,7 +31,7 @@ def set_enc_invalid_data(dut):
 	dut.enc_start.value = 0
 	set_all_enc(dut, \
 		0, LogicArray('XX', Range(1, 'downto', 0)), "X"*COL_W, \
-		0, LogicArray('XX', Range(1, 'downto', 0)), "X"*TXT_W)
+		0,"X"*TXT_W)
 
 async def enc128(dut, 
 	data: bytearray, \

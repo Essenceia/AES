@@ -59,15 +59,17 @@ aes_compact #(.KEY_W(KEY_W)) m_enc(
 );
 
 // ghash 
-localparam GHASH_W = 128; 
+localparam GHASH_W = 128;
+localparam SRAM_W  = 8; 
+ 
 wire               gh_data_v; 
 wire [GHASH_W-1:0] gh_data; 
 wire               gh_key_v;
-wire [GHASH_W-1:0] gh_key;
+wire [SRAM_W-1:0]  gh_key;
 wire               gh_res_v;
 wire [GHASH_W-1:0] gh_res;
 
-ghash m_ghash(
+ghash #(.SRAM_W(SRAM_W)) m_ghash(
 .clk  (clk), 
 .rst_n(rst_n), 
 

@@ -11,6 +11,9 @@ import random
 GHASH_W = 128
 GHASH_HASH_CYCLES = 32
 
+H_BYTES = 16 
+H_W = 8 
+
 # code taken from stack overflow https://crypto.stackexchange.com/questions/61347/aes-gcm-conformance-test
 GHASH_POLY = 0xE1000000000000000000000000000000
 
@@ -62,7 +65,7 @@ def set_all_enc(dut, \
 def set_enc_invalid_data(dut): 
 	set_all_enc(dut, \
 		0, "X"*GHASH_W, \
-		0, "X"*GHASH_W)
+		0, "X"*H_W)
 
 async def hash(dut, 
 	data: bytearray, \
@@ -83,7 +86,7 @@ async def hash(dut,
 	while pi < max_pi: 
 		
 		# send plain text
-		if (random.randint(0, 100) < 40) and (ki > 0):
+		if (random.randint(0, 100) < 40) and (ki == H_BYTES):
 			data_v = 1
 			data_col = LogicArray.from_bytes(data[pi*16:(pi+1)*16], byteorder="big")
 			pi = pi + 1
@@ -95,26 +98,27 @@ async def hash(dut,
 			send = False
 
 		# send key
-		if (random.randint(0, 100) < 40) and (ki < 1):
+		if (random.randint(0, 100) < 40) and (ki < H_BYTES):
 			key_v = 1
-			key_data = LogicArray.from_bytes(key, byteorder="big") 
+			key_data = LogicArray.from_bytes(key[ki:ki+1], byteorder="big")
 			ki = ki + 1	
 		else: 
 			key_v = 0
-			key_data = "X"*GHASH_W
+			key_data = "X"*H_W
 
 		set_all_enc(dut, data_v, data_col, key_v, key_data)
 		if send:
 			await ClockCycles(dut.clk, 1) 
 			set_enc_invalid_data(dut)
-			await ClockCycles(dut.clk, 63) 
+			await ClockCycles(dut.clk, GHASH_HASH_CYCLES-1) 
 		else:
 			await ClockCycles(dut.clk, 1) 
 	set_enc_invalid_data(dut)
 	
 	timeout = 0 
 	res = b''
-	max_timeout = GHASH_HASH_CYCLES + 5 
+	max_timeout = 5 
+	cocotb.log.info(f"started ghash result wait") 
 	while (timeout <= max_timeout): 
 		if (dut.gh_res_v.value == 1):
 			res = dut.gh_res.value	
