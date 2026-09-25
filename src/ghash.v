@@ -3,6 +3,9 @@ Copyright Julia Desmazes, 2026, all rights reserved
 
 Ghash function needs 32 cycles to hash each new data block 
 */
+
+`default_nettype none
+
 module ghash #(
 	localparam W = 128,
 	parameter  SRAM_W = 8
@@ -99,7 +102,7 @@ generate
 
 		// V_(i+1) = V_i[0] ? (V_i >> 1)^R : V_i >> 1
 		ghash_v_partial_dot_product m_vi(
-			.vi_i(v_inc[i]), .vi_inc_o(vi_inc[i+1]));
+			.vi_i(vi_inc[i]), .vi_inc_o(vi_inc[i+1]));
 		
 		// Z_(i+1) = x_i ? Z_i ^ V_i : Z_i
 		assign zi_inc[i+1] = z_inc[i] ^ ({W{xi[i]}} & v_inc[i]);

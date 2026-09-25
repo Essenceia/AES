@@ -7,9 +7,16 @@ RTL_DEPS+=$(wildcard $(SRC_DIR)/*.v)
 
 LINT_FLAGS := -Wall -Wpedantic
 
-lint:  
-	verilator $(WAIVER_FILE) --lint-only $(LINT_FLAGS) --no-timing $(RTL_DEPS) --top $(PROJECT_NAME)
-.PHONY: lint
+lint: lint_aes lint_ghash
+.PHONY: lint 
+
+lint_aes:  
+	verilator $(WAIVER_FILE) --lint-only $(LINT_FLAGS) --no-timing $(RTL_DEPS) --top aes_compact
+.PHONY: lint_aes
+
+lint_ghash:  
+	verilator $(WAIVER_FILE) --lint-only $(LINT_FLAGS) --no-timing $(RTL_DEPS) --top ghash
+.PHONY: lint_ghash
 
 clean: 
 	rm -r ./runs

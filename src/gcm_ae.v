@@ -2,6 +2,9 @@
 
 Pre-load aes(H) and K from SRAM 
 */
+
+`default_nettype none 
+
 module gcm_ae #(
 	parameter PHY_W = 2, 
 	parameter IV_W = 96,
