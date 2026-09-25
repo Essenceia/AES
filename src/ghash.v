@@ -72,7 +72,7 @@ reg [W-1:0]  v_q, z_q;
 
 // X
 reg [W-1:0] x_q; 
-wire xi[STEPS_CYCLE_N];
+wire xi[STEPS_CYCLE_N:0];
  
 always @(posedge clk) 
 	if (data_v_i) x_q <= data_i ^ z_q; // { x0, x1, x2 ... x127}
@@ -84,8 +84,8 @@ always @(posedge clk)
 
 // V_i, Z_i internal state
 /* verilator lint_off UNOPTFLAT */
-wire [W-1:0] vi_inc[STEPS_CYCLE_N];
-wire [W-1:0] zi_inc[STEPS_CYCLE_N]; 
+wire [W-1:0] vi_inc[STEPS_CYCLE_N:0];
+wire [W-1:0] zi_inc[STEPS_CYCLE_N:0]; 
 /* verilator lint_on UNOPTFLAT */
 
 always @(posedge clk)
@@ -106,7 +106,9 @@ generate
 
 		// V_(i+1) = V_i[0] ? (V_i >> 1)^R : V_i >> 1
 		ghash_v_partial_dot_product m_vi(
-			.vi_i(vi_inc[i]), .vi_inc_o(vi_inc[i+1]));
+			.vi_i(vi_inc[i]), 
+			.vi_inc_o(vi_inc[i+1])
+		);
 		
 		// Z_(i+1) = x_i ? Z_i ^ V_i : Z_i
 		assign zi_inc[i+1] = zi_inc[i] ^ ({W{xi[i]}} & vi_inc[i]);
