@@ -1,10 +1,11 @@
 /*
 Copyright Julia Desmazes, 2026, all rights reserved
 
-Ghash function needs 64 cycles to hash each new data block 
+Ghash function needs 32 cycles to hash each new data block 
 */
 module ghash #(
-	parameter W = 128
+	localparam W = 128,
+	parameter  SRAM_W = 8
 )(
 	input wire clk, 
 	input wire rst_n, 
@@ -15,15 +16,15 @@ module ghash #(
 
 	// sub key, H stays constant for the entire hash
 	// is providable before the first data block
-	input wire         h_v_i, // causes reset of the ghash block 
-	input wire [W-1:0] h_i, 
+	input wire              h_v_i, // causes reset of the ghash block 
+	input wire [SRAM_W-1:0] h_i, 
 	
 	output wire         res_v_o,
 	output wire [W-1:0] res_o
 );
-localparam SHIFT_N = 2; 
+localparam STEPS_CYCLE_N = 4; 
 
-localparam CNT_MAX = W / SHIFT_N; 
+localparam CNT_MAX = W / STEPS_CYCLE_N; 
 localparam CNT_W = $clog2(CNT_MAX);
 localparam [CNT_W-1:0] CNT_MAX_MIN1 = CNT_MAX - 1;
 
@@ -66,39 +67,55 @@ reg [W-1:0]  v_q, z_q;
 
 // X
 reg [W-1:0] x_q; 
-wire xi, xi_inc; 
+wire xi[STEPS_CYCLE_N];
+ 
 always @(posedge clk) 
 	if (data_v_i) x_q <= data_i ^ z_q; // { x0, x1, x2 ... x127}
-	else x_q <= {x_q[W-SHIFT_N-1:0], {SHIFT_N{1'bx}} }; // implied fsm_q == BLOCK 
+	else x_q <= {x_q[W-STEPS_CYCLE_N-1:0], {STEPS_CYCLE_N{1'bx}} }; // implied fsm_q == BLOCK 
 	
-assign xi = x_q[W-1];
-assign xi_inc = x_q[W-2];
-
 reg [W-1:0] v0_q;
 always @(posedge clk) 
-	if (h_v_i) v0_q <= h_i; 
+	if (h_v_i) v0_q <= {v0_q[W-SRAM_W-1:0], h_i}; 
 
-// V_i, Z_i
-wire [W-1:0] vi, vi_inc, zi, zi_inc; 
+// V_i, Z_i internal state
+wire [W-1:0] vi_inc[STEPS_CYCLE_N];
+wire [W-1:0] zi_inc[STEPS_CYCLE_N]; 
 
 always @(posedge clk)
 	if (h_v_i | data_v_i | ~rst_n) z_q <= {W{1'b0}};
-	else if (fsm_q == BLOCK) z_q <= zi_inc; 
+	else if (fsm_q == BLOCK) z_q <= zi_inc[STEPS_CYCLE_N]; 
 
 always @(posedge clk) 
 	if (data_v_i ) v_q <= v0_q;
-	else           v_q <= vi_inc;
+	else           v_q <= vi_inc[STEPS_CYCLE_N];
 
-// V_(i+1) = V_i[0] ? (V_i >> 1)^R : V_i >> 1
-ghash_v_partial_dot_porduct m_vi(
-	.vi_i(v_q), .vi_inc_o(vi));
+assign vi_inc[0] = v_q; 
+assign zi_inc[0] = z_q; 
 
-ghash_v_partial_dot_porduct m_vi_inc(
-	.vi_i(vi), .vi_inc_o(vi_inc));
+genvar i; 
+generate 
+	for(i = 0; i < STEPS_CYCLE_N; i = i + 1) : g_steps
+		assign xi[i] = x_q[W-1-i];
 
-// Z_(i+1) = x_i ? Z_i ^ V_i : Z_i
-assign zi     = z_q ^ ({W{xi}} & v_q);
-assign zi_inc = zi ^ ({W{xi_inc}} & vi);
+		// V_(i+1) = V_i[0] ? (V_i >> 1)^R : V_i >> 1
+		ghash_v_partial_dot_porduct m_vi(
+			.vi_i(v_inc[i]), .vi_inc_o(vi_inc[i+1]));
+		
+		// Z_(i+1) = x_i ? Z_i ^ V_i : Z_i
+		assign zi_inc[i+1] = z_inc[i] ^ ({W{xi[i]}} & v_inc[i]);
+	end
+endgenerate
+
+// // V_(i+1) = V_i[0] ? (V_i >> 1)^R : V_i >> 1
+// ghash_v_partial_dot_porduct m_vi(
+// 	.vi_i(v_q), .vi_inc_o(vi));
+// 
+// ghash_v_partial_dot_porduct m_vi_inc(
+// 	.vi_i(vi), .vi_inc_o(vi_inc));
+// 
+// // Z_(i+1) = x_i ? Z_i ^ V_i : Z_i
+// assign zi     = z_q ^ ({W{xi}} & v_q);
+// assign zi_inc = zi ^ ({W{xi_inc}} & vi);
 
 // output 
 assign res_v_o = res_v_q; 
