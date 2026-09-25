@@ -37,8 +37,7 @@ wire [COL_IDX_W-1:0] enc_data_idx;
 wire [COL_W-1:0]     enc_data;
 
 wire                  enc_key_v;
-wire [KCOL_IDX_W-1:0] enc_key_idx;
-wire [COL_W-1:0]      enc_key; 
+wire [KEY_W-1:0]      enc_key; 
 
 wire             enc_res_v; 
 wire [TXT_W-1:0] enc_res; 
@@ -53,7 +52,6 @@ aes_compact #(.KEY_W(KEY_W)) m_enc(
 	.data_i    (enc_data), 
 
 	.key_v_i  (enc_key_v), 
-	.key_idx_i(enc_key_idx),
 	.key_i    (enc_key), 
 
 	.res_v_o (enc_res_v), 

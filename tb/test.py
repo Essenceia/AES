@@ -51,17 +51,12 @@ def set_random_seed():
 # Reset sequence
 async def rst(dut, ena=1 ):
 	dut.rst_n.value = 0
-	dut.enc_data_v.value = 'X'
-	dut.enc_key_v.value  = 'X'
-	aes_utils.set_enc_invalid_data(dut)
 	clk_task = start_clk(dut)
 	await ClockCycles(dut.clk, RST_CYCLES)
-	dut.enc_data_v.value = 0
-	dut.enc_key_v.value = 0
+	aes_utils.set_enc_invalid_data(dut)
 	ghash_utils.set_enc_invalid_data(dut)
 	dut.rst_n.value = 1
 	await ClockCycles(dut.clk, 20)
-
 		
 # test for stupidity, oh yes, very postitive 
 # NIST 197 example cipher result

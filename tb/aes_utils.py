@@ -13,25 +13,25 @@ TXT_BYTES_W = 16
 COL_W = 32
 COL_BYTE_W = 4
 
+AES_CYCLES = 64 
+
 def set_all_enc(dut, \
 	data_v: Logic, \
 	data_idx: LogicArray, 
 	data: LogicArray, \
 	key_v: Logic, \
-	key_idx: LogicArray, \
 	key: LogicArray): 
 	dut.enc_data_v.value = data_v
 	dut.enc_data_idx.value = data_idx
 	dut.enc_data.value = data
 	dut.enc_key_v.value = key_v
-	dut.enc_key_idx.value = key_idx
 	dut.enc_key.value = key
 
 def set_enc_invalid_data(dut): 
 	dut.enc_start.value = 0
 	set_all_enc(dut, \
 		0, LogicArray('XX', Range(1, 'downto', 0)), "X"*COL_W, \
-		0, LogicArray('XX', Range(1, 'downto', 0)), "X"*COL_W)
+		0, LogicArray('XX', Range(1, 'downto', 0)), "X"*TXT_W)
 
 async def enc128(dut, 
 	data: bytearray, \
@@ -41,7 +41,7 @@ async def enc128(dut,
 	cocotb.log.info(f"key 0x{key.hex()} data 0x{data.hex()}")
 	
 	dut.enc_start.value = 0
-	ki = 0 # key collumn next send index 
+	ki = 0 # key sent 
 	pi = 0 # plain text collumn next send index
 
 	# add random gaps between cycles when writting data, the only 
@@ -50,7 +50,7 @@ async def enc128(dut,
 	while pi < 4: 
 		
 		# send plain text
-		if (random.randint(0, 100) < 40) and (pi < 4) and (pi < ki):
+		if (random.randint(0, 100) < 40) and (pi < 4) and (ki > 0):
 			data_v = 1
 			data_idx = pi 
 			data_col = LogicArray.from_bytes(data[data_idx*COL_BYTE_W:(data_idx+1)*COL_BYTE_W], byteorder="big")
@@ -62,17 +62,16 @@ async def enc128(dut,
 			data_col = "X"*COL_W
 
 		# send key
-		if (random.randint(0, 100) < 40) and (ki < 4):
+		if (random.randint(0, 100) < 40) and (ki < 1):
 			key_v = 1
 			key_idx = ki 
-			key_col = LogicArray.from_bytes(key[key_idx*COL_BYTE_W:(key_idx+1)*COL_BYTE_W], byteorder="big") 	
+			key_data = LogicArray.from_bytes(key, byteorder="big") 	
 			ki = ki + 1
 		else: 
 			key_v = 0
-			key_idx = LogicArray('XX', Range(1, 'downto', 0)) 
-			key_col = "X"*COL_W
+			key_data = "X"*COL_W
 
-		set_all_enc(dut, data_v, data_idx, data_col, key_v, key_idx, key_col)
+		set_all_enc(dut, data_v, data_idx, data_col, key_v, key_data)
 		if pi == 4:
 			dut.enc_start.value = 1
 		await ClockCycles(dut.clk, 1) 
@@ -80,7 +79,7 @@ async def enc128(dut,
 	
 	timeout = 0 
 	res = b''
-	max_timeout = 64 - 5 # max timeout time is 64 cycles to get data and we need at least 5 cycle to send data
+	max_timeout = AES_CYCLES - 5 # max timeout time is 64 cycles to get data and we need at least 5 cycle to send data
 	while (timeout < max_timeout): 
 		if (dut.enc_res_v.value == 1):
 			res = dut.enc_res.value	

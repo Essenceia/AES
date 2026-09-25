@@ -98,7 +98,7 @@ generate
 		assign xi[i] = x_q[W-1-i];
 
 		// V_(i+1) = V_i[0] ? (V_i >> 1)^R : V_i >> 1
-		ghash_v_partial_dot_porduct m_vi(
+		ghash_v_partial_dot_product m_vi(
 			.vi_i(v_inc[i]), .vi_inc_o(vi_inc[i+1]));
 		
 		// Z_(i+1) = x_i ? Z_i ^ V_i : Z_i

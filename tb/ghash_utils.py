@@ -9,6 +9,7 @@ from Crypto.Cipher import AES
 import random
 
 GHASH_W = 128
+GHASH_HASH_CYCLES = 32
 
 # code taken from stack overflow https://crypto.stackexchange.com/questions/61347/aes-gcm-conformance-test
 GHASH_POLY = 0xE1000000000000000000000000000000
@@ -96,13 +97,13 @@ async def hash(dut,
 		# send key
 		if (random.randint(0, 100) < 40) and (ki < 1):
 			key_v = 1
-			key_col = LogicArray.from_bytes(key, byteorder="big") 
+			key_data = LogicArray.from_bytes(key, byteorder="big") 
 			ki = ki + 1	
 		else: 
 			key_v = 0
-			key_col = "X"*GHASH_W
+			key_data = "X"*GHASH_W
 
-		set_all_enc(dut, data_v, data_col, key_v, key_col)
+		set_all_enc(dut, data_v, data_col, key_v, key_data)
 		if send:
 			await ClockCycles(dut.clk, 1) 
 			set_enc_invalid_data(dut)
@@ -113,7 +114,7 @@ async def hash(dut,
 	
 	timeout = 0 
 	res = b''
-	max_timeout = 64 + 5 
+	max_timeout = GHASH_HASH_CYCLES + 5 
 	while (timeout <= max_timeout): 
 		if (dut.gh_res_v.value == 1):
 			res = dut.gh_res.value	
