@@ -29,17 +29,19 @@ localparam STEPS_CYCLE_N = 4;
 
 localparam CNT_MAX = W / STEPS_CYCLE_N; 
 localparam CNT_W = $clog2(CNT_MAX);
+/* verilator lint_off WIDTHTRUNC */
 localparam [CNT_W-1:0] CNT_MAX_MIN1 = CNT_MAX - 1;
+/* verilator lint_on WIDTHTRUNC */
 
-localparam [W-1:0] R = {8'b11100001, {120{1'b0}}};
+// localparam [W-1:0] R = {8'b11100001, {120{1'b0}}};
 
 // fsm 
 localparam IDLE =  1'd0;
 localparam BLOCK = 1'd1;
-reg             fsm_q;
-reg [CNT_W-1:0]  cnt_q;
+reg              fsm_q;
+reg  [CNT_W-1:0] cnt_q;
 wire [CNT_W-1:0] cnt_next;
-wire            block_finished; 
+wire             block_finished; 
 
 always @(posedge clk) begin
 	if (~rst_n ) begin
@@ -81,8 +83,10 @@ always @(posedge clk)
 	if (h_v_i) v0_q <= {v0_q[W-SRAM_W-1:0], h_i}; 
 
 // V_i, Z_i internal state
+/* verilator lint_off UNOPTFLAT */
 wire [W-1:0] vi_inc[STEPS_CYCLE_N];
 wire [W-1:0] zi_inc[STEPS_CYCLE_N]; 
+/* verilator lint_on UNOPTFLAT */
 
 always @(posedge clk)
 	if (h_v_i | data_v_i | ~rst_n) z_q <= {W{1'b0}};
@@ -105,7 +109,7 @@ generate
 			.vi_i(vi_inc[i]), .vi_inc_o(vi_inc[i+1]));
 		
 		// Z_(i+1) = x_i ? Z_i ^ V_i : Z_i
-		assign zi_inc[i+1] = z_inc[i] ^ ({W{xi[i]}} & v_inc[i]);
+		assign zi_inc[i+1] = zi_inc[i] ^ ({W{xi[i]}} & vi_inc[i]);
 	end
 endgenerate
 
