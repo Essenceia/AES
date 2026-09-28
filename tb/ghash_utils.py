@@ -18,7 +18,7 @@ H_W = 8
 GHASH_POLY = 0xE1000000000000000000000000000000
 
 def __ghash_gf_multiply(x: int, y: int) -> int:
-	cocotb.log.info(f"Galois dot product inputs\nX {x:#0{34}x}\nY {y:#0{34}x}")
+	cocotb.log.debug(f"Galois dot product inputs\nX {x:#0{34}x}\nY {y:#0{34}x}")
 
 	z = 0
 	v = y
@@ -27,14 +27,14 @@ def __ghash_gf_multiply(x: int, y: int) -> int:
 	for i in range(127, -1, -1):
 		if (x >> i) & 1:
 			z ^= v
-		cocotb.log.info(f"{128-i} x {(x>>i):#0{34}x}")
+		cocotb.log.debug(f"{128-i} x {(x>>i):#0{34}x}")
 		if v & 1:
 			v = (v >> 1) ^ GHASH_POLY
 		else:
 			v = v >> 1
-		cocotb.log.info(f"{128-i} z {z:#0{34}x} v {v:#0{34}x}")
+		cocotb.log.debug(f"{128-i} z {z:#0{34}x} v {v:#0{34}x}")
 
-	cocotb.log.info(f"GHASH block result z {z:#0{34}x}")
+	cocotb.log.debug(f"GHASH block result z {z:#0{34}x}")
 	return z
 
 def __ghash(h_key: bytes, payload: bytes) -> bytes:
@@ -74,8 +74,8 @@ async def hash(dut,
 	assert len(data) % 16 == 0
 	max_pi = int(len(data) / 16)
 
-	cocotb.log.info("\n\n\n\n============= New hash =================\n\n\n\n")	
-	cocotb.log.info(f"partial key 0x{key.hex()} data 0x{data.hex()} (blocks {max_pi})")
+	cocotb.log.debug("\n\n\n\n============= New hash =================\n\n\n\n")	
+	cocotb.log.debug(f"partial key 0x{key.hex()} data 0x{data.hex()} (blocks {max_pi})")
 	
 	ki = 0 # key block sent
 	pi = 0 # plain text block sent
@@ -129,7 +129,7 @@ async def hash(dut,
 	assert timeout < max_timeout, "timeout reached without res_v"
 
 	ghash_expected = __ghash(key, data) 
-	cocotb.log.info(f"expected 0x{ghash_expected.hex()}\ngotten   {hex(res)}") 
+	cocotb.log.debug(f"expected 0x{ghash_expected.hex()}\ngotten   {hex(res)}") 
 #	cipher = AES.new(key, AES.MODE_ECB)
 #	ciphertext = cipher.encrypt(data)
 #
