@@ -229,9 +229,9 @@ ghash #(.SRAM_W(SRAM_W), .PHY_W(PHY_W)) m_ghash(
 	.h_v_i(sram_v_i & sram_h_i), 
 	.h_i  (sram_data_i), 
 
-	.res_steam_v_i(gh_hash_v),
-	.res_v_o      (gh_res_v),
-	.res_o        (gh_res)
+	.res_shift_i (gh_hash_v),
+	.res_v_o     (gh_res_v),
+	.res_o       (gh_res)
 	);
 
 

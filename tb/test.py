@@ -32,7 +32,6 @@ else:
 
 TXT_W = 128
 KEY_W = 128 
-COL_W = 32
 TXT_BYTES_W = 16
 
 def start_clk(dut):
@@ -61,7 +60,7 @@ async def rst(dut, ena=1 ):
 # test for stupidity, oh yes, very postitive 
 # NIST 197 example cipher result
 @cocotb.test()
-async def simple_test(dut):
+async def aes_simple_test(dut):
 	set_random_seed()
 	await rst(dut)
 	for _ in range(2): # test state is correctly wipped between each run 
@@ -70,7 +69,7 @@ async def simple_test(dut):
 		await aes_utils.enc128(dut, ptxt, key)
 
 @cocotb.test()
-async def random_test(dut):
+async def aes_random_test(dut):
 	set_random_seed() # for reporducibility (so that I have lots of children to spoil at Christmas)
 	await rst(dut)
 	for _ in range(TEST_ITER):

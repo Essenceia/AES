@@ -54,13 +54,13 @@ module aes_compact #(
 )(
 	input  wire clk,
 	input  wire rst_n,
-	input  wire                 start_i, 
+	
+	input  wire             start_i, 
+	input  wire             data_v_i, // input valid
+	input  wire [TXT_W-1:0] data_i,   // message to decode
 
-	input  wire                 data_v_i, // input valid
-	input  wire [TXT_W-1:0]     data_i,   // message to decode
-
-	input  wire                  key_v_i,
-	input  wire [KEY_W-1:0]      key_i,    // key
+	input  wire             key_v_i,
+	input  wire [KEY_W-1:0] key_i,    // key
 
 	output wire             res_v_o,  // result valid
 	output wire [TXT_W-1:0] res_o     // result
@@ -227,6 +227,7 @@ assign col_rk_inner = skip_mc  ? col_sb: col_mc;
 assign col_rk       = col_rk_inner ^ key_col; 
 
 wire [TXT_W-1:0] init_rk;
+reg [KEY_W-1:0]  key_q; 
 assign init_rk = data_i ^ key_q;
  
 // write-back
@@ -259,7 +260,6 @@ assign debug_data_col3 = data_q[TXT_W-3*COL_W-1-:COL_W];
 // key schedulaing 
 localparam RCON_W = 8;
 
-reg [KEY_W-1:0]  key_q; 
 
 reg  [RCON_W-1:0] rcon_q;
 wire [RCON_W-1:0] rcon_next;

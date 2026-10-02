@@ -9,6 +9,7 @@ from Crypto.Cipher import AES
 import random
 
 TXT_W = 128
+KEY_W = 128
 TXT_BYTES_W = 16 
 COL_W = 32
 COL_BYTE_W = 4
@@ -17,12 +18,10 @@ AES_CYCLES = 64
 
 def set_all_enc(dut, \
 	data_v: Logic, \
-	data_idx: LogicArray, 
 	data: LogicArray, \
 	key_v: Logic, \
 	key: LogicArray): 
 	dut.enc_data_v.value = data_v
-	dut.enc_data_idx.value = data_idx
 	dut.enc_data.value = data
 	dut.enc_key_v.value = key_v
 	dut.enc_key.value = key
@@ -30,8 +29,8 @@ def set_all_enc(dut, \
 def set_enc_invalid_data(dut): 
 	dut.enc_start.value = 0
 	set_all_enc(dut, \
-		0, LogicArray('XX', Range(1, 'downto', 0)), "X"*COL_W, \
-		0,"X"*TXT_W)
+		0,"X"*TXT_W, \
+		0,"X"*KEY_W)
 
 async def enc128(dut, 
 	data: bytearray, \
@@ -47,32 +46,28 @@ async def enc128(dut,
 	# add random gaps between cycles when writting data, the only 
 	# constraint is that the key collumn must be sent before the 
 	# equivalent data collumn
-	while pi < 4: 
+	while pi == 0: 
 		
 		# send plain text
-		if (random.randint(0, 100) < 40) and (pi < 4) and (ki > 0):
+		if (random.randint(0, 100) < 40) and (pi == 0) and (ki > 0):
 			data_v = 1
-			data_idx = pi 
-			data_col = LogicArray.from_bytes(data[data_idx*COL_BYTE_W:(data_idx+1)*COL_BYTE_W], byteorder="big")
+			data_i = LogicArray.from_bytes(data, byteorder="big")
 			pi = pi + 1
-			cocotb.log.debug(f"txt col{pi} {hex(data_col)}")	
 		else: 
 			data_v = 0 
-			data_idx = LogicArray('XX', Range(1, 'downto', 0)) 
-			data_col = "X"*COL_W
+			data_i = "X"*TXT_W
 
 		# send key
 		if (random.randint(0, 100) < 40) and (ki < 1):
 			key_v = 1
-			key_idx = ki 
 			key_data = LogicArray.from_bytes(key, byteorder="big") 	
 			ki = ki + 1
 		else: 
 			key_v = 0
-			key_data = "X"*COL_W
+			key_data = "X"*TXT_W
 
-		set_all_enc(dut, data_v, data_idx, data_col, key_v, key_data)
-		if pi == 4:
+		set_all_enc(dut, data_v, data_i, key_v, key_data)
+		if pi == 1:
 			dut.enc_start.value = 1
 		await ClockCycles(dut.clk, 1) 
 	set_enc_invalid_data(dut)
