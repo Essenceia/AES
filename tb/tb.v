@@ -62,6 +62,7 @@ wire [GHASH_W-1:0] gh_data;
 wire               gh_key_v;
 wire [SRAM_W-1:0]  gh_key;
 wire               gh_res_shift; 
+wire               gh_res_early_v;
 wire               gh_res_v;
 wire [PHY_W-1:0]   gh_res;
 
@@ -75,9 +76,10 @@ ghash #(.SRAM_W(SRAM_W)) m_ghash(
 .h_v_i   (gh_key_v), 
 .h_i     (gh_key), 
 
-.res_shift_i(gh_res_shift),
-.res_v_o    (gh_res_v),
-.res_o      (gh_res)
+.res_shift_i  (gh_res_shift),
+.res_early_v_o(gh_res_early_v),
+.res_v_o      (gh_res_v),
+.res_o        (gh_res)
 );
 
 endmodule

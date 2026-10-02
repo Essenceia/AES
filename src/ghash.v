@@ -27,6 +27,7 @@ module ghash #(
 	
 	input wire              res_shift_i, 
 	output wire             res_v_o,
+	output wire             res_early_v_o,
 	output wire [PHY_W-1:0] res_o
 );
 localparam STEPS_CYCLE_N = 4; 
@@ -34,7 +35,7 @@ localparam STEPS_CYCLE_N = 4;
 localparam CNT_MAX = W / STEPS_CYCLE_N; 
 localparam CNT_W = $clog2(CNT_MAX);
 /* verilator lint_off WIDTHTRUNC */
-localparam [CNT_W-1:0] CNT_MAX_MIN1 = CNT_MAX - 1;
+localparam [CNT_W-1:0] CNT_MAX_MIN2 = CNT_MAX - 2;
 /* verilator lint_on WIDTHTRUNC */
 
 // localparam [W-1:0] R = {8'b11100001, {120{1'b0}}};
@@ -66,10 +67,15 @@ always @(posedge clk) begin
 end
 
 assign cnt_next = cnt_q + {{CNT_W-1{1'b0}}, 1'b1};
-assign block_finished = cnt_q == CNT_MAX_MIN1;
+
+reg res_early_v_q; 
 reg res_v_q; 
-always @(posedge clk) 
-	res_v_q <= block_finished; 
+
+always @(posedge clk) begin 
+	res_early_v_q <= (cnt_q == CNT_MAX_MIN2);
+	res_v_q       <= res_early_v_q; 
+end
+assign block_finished = res_early_v_q;
 
 // galois dot product
 reg [W-1:0]  v_q, z_q;
@@ -92,14 +98,16 @@ wire [W-1:0] vi_inc[STEPS_CYCLE_N:0];
 wire [W-1:0] zi_inc[STEPS_CYCLE_N:0]; 
 /* verilator lint_on UNOPTFLAT */
 
+wire [W-1:0] z_shift_next; 
+assign z_shift_next = { z_q[W-PHY_W-1:0], {PHY_W{1'bx}} };
 always @(posedge clk)
-	if (h_v_i | data_v_i | ~rst_n)  z_q <= {W{1'b0}};
-	else if (fsm_q == BLOCK)        z_q <= zi_inc[STEPS_CYCLE_N];
-	else if (res_shift_i & res_v_q) z_q <= { z_q[W-PHY_W-1:0], {PHY_W{1'bx}} }; 
+	if (h_v_i | data_v_i | ~rst_n)z_q <= {W{1'b0}};
+	else if (fsm_q == BLOCK)      z_q <= zi_inc[STEPS_CYCLE_N];
+	else if (res_shift_i)         z_q <= z_shift_next; 
 
 always @(posedge clk) 
-	if (data_v_i ) v_q <= v0_q;
-	else           v_q <= vi_inc[STEPS_CYCLE_N];
+	if (data_v_i) v_q <= v0_q;
+	else          v_q <= vi_inc[STEPS_CYCLE_N];
 
 assign vi_inc[0] = v_q; 
 assign zi_inc[0] = z_q; 
@@ -122,6 +130,7 @@ endgenerate
 
 // output 
 assign res_v_o = res_v_q; 
+assign res_early_v_o = res_early_v_q; 
 assign res_o   = z_q[W-1-:PHY_W];
 
 endmodule
