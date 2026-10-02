@@ -9,7 +9,10 @@ from Crypto.Cipher import AES
 import random
 
 GHASH_W = 128
+GHASH_BYTES_W = int(128/8)
 GHASH_HASH_CYCLES = 32
+PHY_W = 2
+GHASH_RES_CYCLES = int(GHASH_W/PHY_W)
 
 H_BYTES = 16 
 H_W = 8 
@@ -66,6 +69,17 @@ def set_enc_invalid_data(dut):
 		0, "X"*GHASH_W, \
 		0, "X"*H_W)
 
+async def read_res(dut) -> bytearray:
+	tmp = 0#byte buffer
+	res = bytearray(GHASH_BYTES_W) # init to 0 
+	for i in range(0, GHASH_RES_CYCLES):
+		assert(dut.gh_res_v.value == 1) 
+		idx = int(i/4)
+		tmp = int(dut.gh_res.value)
+		res[idx] = res[idx] | (tmp << (i%4))
+		ClockCycles(dut.clk, 1)
+	return res
+
 async def hash(dut, 
 	data: bytearray, \
 	key:  bytearray):
@@ -120,7 +134,7 @@ async def hash(dut,
 	max_timeout = 5 
 	while (timeout <= max_timeout): 
 		if (dut.gh_res_v.value == 1):
-			res = dut.gh_res.value	
+			res = await read_res(dut)
 			break
 	
 		await ClockCycles(dut.clk, 1)
@@ -129,11 +143,11 @@ async def hash(dut,
 	assert timeout < max_timeout, "timeout reached without res_v"
 
 	ghash_expected = __ghash(key, data) 
-	cocotb.log.debug(f"expected 0x{ghash_expected.hex()}\ngotten   {hex(res)}") 
+	cocotb.log.debug(f"expected 0x{ghash_expected.hex()}\ngotten   {res.hex()}") 
 #	cipher = AES.new(key, AES.MODE_ECB)
 #	ciphertext = cipher.encrypt(data)
 #
-	assert res == LogicArray.from_bytes(ghash_expected, byteorder="big"), f"cipher result missmatch\nexpected 0x{ghash_expected.hex()}\ngotten   {hex(res)}"
+	assert res == ghash_expected, f"cipher result missmatch\nexpected 0x{ghash_expected.hex()}\ngotten   {res.hex()}"
  
 	
 
