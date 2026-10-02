@@ -210,7 +210,7 @@ wire [COL_W-1:0] col_rk;
 wire [COL_W-1:0] col_rk_inner; 
 wire [KCOL_IDX_W-1:0] kcol_rd_idx; 
 
-assign kcol_rd_idx = data_v_i ? data_idx_i: col_cnt_q; 
+assign kcol_rd_idx = col_cnt_q; 
 
 always @(*) begin
 	case(kcol_rd_idx) 
@@ -233,7 +233,7 @@ assign init_rk = data_i ^ key_q;
 wire [COL_N-1:0]     data_wr_en;
 wire [COL_IDX_W-1:0] col_wr_sel; 
 
-assign col_wr_sel = data_v_i ? data_idx_i: col_cnt_q;
+assign col_wr_sel = col_cnt_q;
 assign data_wr_en[0] = (col_wr_sel == 2'd0) & ((fsm_q != RND_FIRST) & (fsm_q != RND_BUBBLE)); 
 assign data_wr_en[1] = (col_wr_sel == 2'd1) & ((fsm_q != RND_FIRST) & (fsm_q != RND_BUBBLE)); 
 assign data_wr_en[2] = (col_wr_sel == 2'd2) & ((fsm_q != RND_FIRST) & (fsm_q != RND_BUBBLE)); 

@@ -95,7 +95,7 @@ wire [W-1:0] zi_inc[STEPS_CYCLE_N:0];
 always @(posedge clk)
 	if (h_v_i | data_v_i | ~rst_n) z_q <= {W{1'b0}};
 	else if (fsm_q == BLOCK) z_q <= zi_inc[STEPS_CYCLE_N];
-	else if (res_steam_v_i & res_v_q)  z_q <= { z_q[W-RHY_W-1:0], {PHY_W{1'bx}} }; 
+	else if (res_steam_v_i & res_v_q)  z_q <= { z_q[W-PHY_W-1:0], {PHY_W{1'bx}} }; 
 
 always @(posedge clk) 
 	if (data_v_i ) v_q <= v0_q;
