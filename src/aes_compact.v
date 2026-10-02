@@ -11,12 +11,12 @@ For AES-128 it takes:
 round 0:
 - 1 early cycle to pre-load key collumn ahead of equivalent
 	plain text collumn. This was done to re-use key collumn mux to data paths.
-- 4 cycles to initally load plain txt per 32b chunks
+- 1 cycles to initally load plain txt per 128b chunks
 rounds 1-9:
 - 4 cycles per collumn
 last round: 
 - 4 cycles per collumn 
-So a total of at least 45 cycles.
+So a total of at least 42 cycles.
 
 Given in our target system data is arriving at a rate of 2b per cycle we have
 64 cycles available to us to compute 128, which makes this fast enought for the
@@ -35,13 +35,13 @@ A hypotetical implementation of AES-256 would take:
 	- 3 : key collumns 5, 6, 7
 round 0: 
 - 1 extra cycle to preload key col equivalent ahead of plain txt (like AES-128)
-- 4 plain txt (like AES-128)
-- 3 extra cycle to finish loading key columns <---
+- 1 plain txt (like AES-128)
+- 3 extra cycle to finish loading key columns <--- ? let's see 
 rounds 1-13:
 - 4 cycle, 1 per collumn, same as AES-128
 last round: 
 - 4 cycle, 1 per collumn, same as AES-128
-For a total of at least 64 cycles, which is exactly how much time we have. 
+For a total of at least 58 + ~3 cycles, which is less than how much time we have. 
 */
 module aes_compact #(
 	localparam TXT_W = 128, // regardless of cipher
@@ -57,8 +57,7 @@ module aes_compact #(
 	input  wire                 start_i, 
 
 	input  wire                 data_v_i, // input valid
-	input  wire [COL_IDX_W-1:0] data_idx_i, // collumn index
-	input  wire [COL_W-1:0]     data_i,   // message to decode
+	input  wire [TXT_W-1:0]     data_i,   // message to decode
 
 	input  wire                  key_v_i,
 	input  wire [KEY_W-1:0]      key_i,    // key
@@ -209,8 +208,8 @@ wire [KCOL_W-1:0] kcol0, kcol1, kcol2, kcol3;
 reg  [COL_W-1:0] key_col; 
 wire [COL_W-1:0] col_rk; 
 wire [COL_W-1:0] col_rk_inner; 
-
 wire [KCOL_IDX_W-1:0] kcol_rd_idx; 
+
 assign kcol_rd_idx = data_v_i ? data_idx_i: col_cnt_q; 
 
 always @(*) begin
@@ -224,26 +223,28 @@ end
 
 assign skip_mc = (fsm_q == RND_LAST); 
 
-assign col_rk_inner = data_v_i ? data_i:
-					  skip_mc  ? col_sb: col_mc;
-assign col_rk = col_rk_inner ^ key_col; 
+assign col_rk_inner = skip_mc  ? col_sb: col_mc;
+assign col_rk       = col_rk_inner ^ key_col; 
 
+wire [TXT_W-1:0] init_rk;
+assign init_rk = data_i ^ key_q;
+ 
 // write-back
 wire [COL_N-1:0]     data_wr_en;
 wire [COL_IDX_W-1:0] col_wr_sel; 
 
 assign col_wr_sel = data_v_i ? data_idx_i: col_cnt_q;
-assign data_wr_en[0] = (col_wr_sel == 2'd0) & (data_v_i | ((fsm_q != RND_FIRST) & (fsm_q != RND_BUBBLE))); 
-assign data_wr_en[1] = (col_wr_sel == 2'd1) & (data_v_i | ((fsm_q != RND_FIRST) & (fsm_q != RND_BUBBLE))); 
-assign data_wr_en[2] = (col_wr_sel == 2'd2) & (data_v_i | ((fsm_q != RND_FIRST) & (fsm_q != RND_BUBBLE))); 
-assign data_wr_en[3] = (col_wr_sel == 2'd3) & (data_v_i | ((fsm_q != RND_FIRST) & (fsm_q != RND_BUBBLE))); 
+assign data_wr_en[0] = (col_wr_sel == 2'd0) & ((fsm_q != RND_FIRST) & (fsm_q != RND_BUBBLE)); 
+assign data_wr_en[1] = (col_wr_sel == 2'd1) & ((fsm_q != RND_FIRST) & (fsm_q != RND_BUBBLE)); 
+assign data_wr_en[2] = (col_wr_sel == 2'd2) & ((fsm_q != RND_FIRST) & (fsm_q != RND_BUBBLE)); 
+assign data_wr_en[3] = data_v_i | ((col_wr_sel == 2'd3) & ((fsm_q != RND_FIRST) & (fsm_q != RND_BUBBLE))); 
 
 // sdff to come
 always @(posedge clk) begin 
 	if (data_wr_en[0]) data_cache_q[TXT_W-1-:COL_W]         <= col_rk; 
 	if (data_wr_en[1]) data_cache_q[TXT_W-COL_W-1-:COL_W]   <= col_rk; 
 	if (data_wr_en[2]) data_cache_q[TXT_W-2*COL_W-1-:COL_W] <= col_rk; 
-	if (data_wr_en[3]) data_q                               <= {data_cache_q, col_rk};
+	if (data_wr_en[3]) data_q                               <= data_v_i ? init_rk : {data_cache_q, col_rk};
 end
 
 wire [COL_W-1:0] debug_data_col0;

@@ -1,14 +1,17 @@
 /*
 Copyright Julia Desmazes, 2026, all rights reserved
 
-Ghash function needs 32 cycles to hash each new data block 
+Ghash function needs 32 cycles to hash each new data block.
+Streamout ghash result over W/PHY_W cycles by shifting out
+data (streamout) when res_stream_v_i is asserted.  
 */
 
 `default_nettype none
 
 module ghash #(
 	localparam W = 128,
-	parameter  SRAM_W = 8
+	parameter  PHY_W = 2,
+	parameter  SRAM_W = 16
 )(
 	input wire clk, 
 	input wire rst_n, 
@@ -22,8 +25,9 @@ module ghash #(
 	input wire              h_v_i, // causes reset of the ghash block 
 	input wire [SRAM_W-1:0] h_i, 
 	
-	output wire         res_v_o,
-	output wire [W-1:0] res_o
+	input wire              res_steam_v_i, 
+	output wire             res_v_o,
+	output wire [PHY_W-1:0] res_o
 );
 localparam STEPS_CYCLE_N = 4; 
 
@@ -90,7 +94,8 @@ wire [W-1:0] zi_inc[STEPS_CYCLE_N:0];
 
 always @(posedge clk)
 	if (h_v_i | data_v_i | ~rst_n) z_q <= {W{1'b0}};
-	else if (fsm_q == BLOCK) z_q <= zi_inc[STEPS_CYCLE_N]; 
+	else if (fsm_q == BLOCK) z_q <= zi_inc[STEPS_CYCLE_N];
+	else if (res_steam_v_i & res_v_q)  z_q <= { z_q[W-RHY_W-1:0], {PHY_W{1'bx}} }; 
 
 always @(posedge clk) 
 	if (data_v_i ) v_q <= v0_q;
@@ -115,19 +120,8 @@ generate
 	end
 endgenerate
 
-// // V_(i+1) = V_i[0] ? (V_i >> 1)^R : V_i >> 1
-// ghash_v_partial_dot_porduct m_vi(
-// 	.vi_i(v_q), .vi_inc_o(vi));
-// 
-// ghash_v_partial_dot_porduct m_vi_inc(
-// 	.vi_i(vi), .vi_inc_o(vi_inc));
-// 
-// // Z_(i+1) = x_i ? Z_i ^ V_i : Z_i
-// assign zi     = z_q ^ ({W{xi}} & v_q);
-// assign zi_inc = zi ^ ({W{xi_inc}} & vi);
-
 // output 
 assign res_v_o = res_v_q; 
-assign res_o   = z_q;
+assign res_o   = z_q[W-1-:PHY_W];
 
 endmodule

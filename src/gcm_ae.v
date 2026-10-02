@@ -7,39 +7,139 @@ Pre-load aes(H) and K from SRAM
 
 module gcm_ae #(
 	parameter PHY_W = 2, 
-	parameter IV_W = 96,
+	localparam SCI_W = 64,
+	localparam IV_W = 96,
 	parameter W = 128,
-	parameter  SRAM_W = 8, 
+	parameter  SRAM_W = 16, 
 	localparam SRAM_ADDR_W = 5, 
 	localparam [SRAM_ADDR_W-1:0] SRAM_H_ADDR = 5'h0,
-	localparam [SRAM_ADDR_W-1:0] SRAM_K_ADDR = 5'h16
+	localparam [SRAM_ADDR_W-1:0] SRAM_K_ADDR = 5'h16,
+	parameter C_CNT_W = 10 // cipher block count
+	
 )(
-input wire clk, 
-input wire rst_n, 
-
-input wire                   sram_v_i,
-input wire                   sram_k_i,
-input wire                   sram_h_i,
-input wire [SRAM_W-1:0]      sram_data_i,
-
-// plain text packet
-input wire             tx_v_i,
-input wire [PHY_W-1:0] tx_i, 
-input wire             tx_encypt_i // indicates this section should be encrypted
+	input wire clk, 
+	input wire rst_n, 
+	
+	input wire                   init_i, 
+	
+	input wire                   sram_v_i,
+	input wire                   sram_k_i,
+	input wire                   sram_h_i,
+	input wire [SRAM_W-1:0]      sram_data_i,
+	
+	// RX Eth - post address table lookup and match
+	input wire                   data_v_i, 
+	input wire                   data_enc_i, // encrypt incoming data
+	input wire [PHY_W-1:0]       data_i, 
+	input wire                   data_last_i, 
+	// TX Eth
+	output wire                  data_o, 
+	
+	
+	// read from RAM and shared over common interface
+	input wire [31:0]            pn_i, // bottom 32b of the PN
+	input wire [SCI_W-1:0]       sci_i, 
+	        
+	// plain text packet
+	input wire             tx_v_i,
+	input wire [PHY_W-1:0] tx_i, 
+	input wire             tx_encypt_i // indicates this section should be encrypted
 );
-// fsm 
-localparam IDLE        = 'd0; 
-localparam SREAM_A     = 'd1; 
-localparam PAD_A       = 'd2;
-localparam STREAM_C    = 'd3; 
-localparam PAD_C       = 'd4; 
-localparam GHASH_SIZES = 'd5; 
+wire gh_hash_v; // ghash final hash valid
+wire aes_enc_v; // apply aes encryption   
 
 // key must be fully stored outside of aes as is needs to be refresed before 
 // each block
 reg [W-1:0] key_q; 
+reg         key_v_q; // has complete key
 always @(posedge clk) 
 	if (sram_v_i & sram_k_i) key_q <= {key_q[W-SRAM_W-1:0], sram_i};  
+
+// C block count, assuming a max of 16k Bytes
+// init value at 2 to not need an additional inc_32 before first aes 
+// cipher
+req [C_CNT_W-1:0] c_cnt_q; 
+wire c_inc_v; // aes result finished and we can start next block 
+always @(posedge clk) 
+	if (init_i) cnt_q <= {{C_CNT_W-2{1'b0}}, 2'd2}; 
+	else cnt_q <= cnt_q + {{C_CNT_W-1{1'b0}}, c_inc_v}; 
+
+
+// main fsm 
+localparam FSM_IDLE     = 3'd0; 
+localparam FSM_A        = 3'd1; 
+localparam FSM_C        = 3'd2; 
+localparam FSM_ICV_CALC = 3'd3; 
+localparam FSM_ICV      = 3'd4; 
+reg [2:0] fsm_q; 
+
+always @(posedge clk) begin
+	if (~rst_n) fsm_q <= FSM_IDLE; 
+	else case (fsm_q)
+		FSM_IDLE:     fsm_q <= init_i ? FSM_A: FSM_IDLE; 
+		FSM_A:        fsm_q <= (data_v_i & data_enc_i)? FSM_C : 
+					           payload_finished ? FSM_ICV_CACL: FSM_A; 
+		FSM_C:        fsm_q <= payload_finished ? FSM_ICV_CACL: FSM_C; 
+		FSM_ICV_CACL: fsm_q <= gh_hash_v  ? FSM_ICV: FSM_ICV_CALC; 
+		FSM_ICV:      fsm_q <= ~gh_hash_v ? FSM_IDLE: FSM_ICV;
+		default:      fsm_q <= FSM_IDLE; 
+	endcase
+end
+
+/* 
+Calculate the next aes block hash one block ahead such that we can 
+apply the hash to the incoming data as it streams in and directly 
+store it to the ghash input buffer. */
+reg [W-1:0] aes_hash_q; 
+
+// aes fsm
+localparam FSM_AES_IDLE    = 3'd0; 
+localparam FSM_AES_LD_KEY  = 3'd1; 
+localparam FSM_AES_LD_DATA = 3'd2; 
+localparam FSM_AES_HASH    = 3'd3; 
+localparam FSM_AES_RES     = 3'd4; 
+reg [2:0] fsm_aes_q; 
+
+
+wire payload_finished;  // last data seen 
+wire aes_res_v; 
+always @(posedge clk) begin
+	if (~rst_n) fsm_aes_q <= FSM_AES_IDLE; 
+	else case(fsm_aes_q) 
+		FSM_AES_IDLE:    fsm_aes_q <= key_v_q ? FSM_AES_LD_KEY ? FSM_AES_IDLE;
+		FSM_AES_LD_KEY:  fsm_aes_q <= FSM_AES_LD_DATA; // load key
+		FSM_AES_LD_DATA: fsm_aes_q <= FSM_AES_LD_HASH;
+		FSM_AES_HASH:    fsm_aes_q <= aes_res_v ? FSM_AES_RES: FSM_AES_HASH; 
+		FSM_AES_RES:     fsm_aes_q <= // hold res until we have 
+
+		default:  fsm_aes_q <= FSM_AES_IDLE;  
+	endcase
+end
+
+reg aes_tag_v_q; // indicated whether we are calculating the aes for the tag or the plain text 
+always @(posedge clk) 
+	if (~rst_n | init_i) aes_tag_v_q <= 1'b0; 
+	else aes_tag_v_q <= aes_tag_v_q | payload_finished; 
+
+
+// previous aes hash
+wire aes_hash_shift; 
+assign aes_hash_shift = (data_v_i & data_enc_i) | gh_hash_v; 
+always @(posedge clk) 
+	if (aes_res_v) aes_hash_q <= aes_res; 
+	else if (aes_hash_shift) aes_hash_q <= {aes_hash_q[W-PHY_W-1:0], {PHY_W{1'b0}}};
+
+// J0 is the same as the C block counter + 1, IV is 96 bits and is constant during 
+// then entire encryption
+wire [IV_W-1:0] iv; 
+wire [CNT_W-1:0] iv_lsb;
+wire iv_cipher_v; 
+
+assign iv_cipher_v = fsm_aes_q != FSM_AES_TAG_LD_KEY; 
+assign iv_lsb      = iv_cipher_v ? cnt_q : {{C_CNT_W-1{1'b0}}, 1'b1};
+assign iv          = { sci_i, pn_i, {32-C_CNT_W{1'b0}}, iv_lsb}; 
+ 
+
 
 // GCTR 
 //
@@ -53,19 +153,53 @@ always @(posedge clk)
 //.start_i(), // might have to change this
 // WIP  
 
-// preload H 
+/* GHASH centers around tag calculation */ 
+localparam FSM_GHASH_IDLE    = 3'd0; 
+localparam FSM_GHASH_LD_H    = 3'd1; 
+localparam FSM_GHASH_HASH_A  = 3'd2; // authentification data
+localparam FSM_GHASH_HASH_C  = 3'd3; // ciphered data
+localparam FSM_GHASH_HASH_L  = 3'd4; // lengths
+localparam FSM_GHASH_RES     = 3'd5;
+
+reg [2:0] fsm_gh_q;
+always @(posedge clk) begin
+	if (~rst_n) fsm_gh_q <= FSM_GHASH_IDLE; 
+	else case (fsm_gh_q) 
+		FSM_GHASH_IDLE:   fsm_gh_q <= sram_v_i & sram_h_i ? FSM_GHASH_LD_H: FSM_GHASH_IDLE; 
+		FSM_GHASH_LD_H:   fsm_gh_q <= ~sram_h_i ? FSM_GHASH_A: FSM_GHASH_LD_H; 
+		FSM_GHASH_HASH_A: fsm_gh_q <= data_v_i & data_enc_v_i? FSM_GHASH_HASH_C ? data_v_i & data_last_i ? FSM_GHASH_HASH_L: FSM_GHASH_HASH_A;  
+		FSM_GHASH_HASH_H: fsm_gh_q <= data_v_i & data_last_i ? FSM_GHASH_HASH_L: FSM_GHASH_HASH_H;
+		FSM_GHASH_HASH_L: fsm_gh_q <= gh_res_v? FSM_GHASH_RES: FSM_GHASH_HASH_L;
+		FSM_GHASH_RES:    fsm_gh_q <= ~gh_res_v? FSM_GHASH_IDLE: FSM_GHASH_RES;   
+	endcase
+end
+// GHASH final hash is valid for xor with aes hash to produce icv
+assign gh_hash_v = gh_res_v & ((fsm_gh_q == FSM_GHASH_HASH_L) | (fsm_gh_q == FSM_GHASH_RES)); 
+
 wire         gh_res_v; 
 wire [W-1:0] gh_res;
-ghash #(.SRAM_W(SRAM_W)) m_ghash(
-.clk(clk), 
-.rst_n(rst_n), 
-.data_v_i(1'bx), 
-.data_i({128{1'bx}}), 
-.h_v_i(sram_v_i & sram_h_i), 
-.h_i(sram_data_i), 
-.res_v_o(gh_res_v),
-.res_o(gh_res)
-);
+ghash #(.SRAM_W(SRAM_W, .PHY_W(PHY_W))) m_ghash(
+	.clk  (clk), 
+	.rst_n(rst_n), 
+
+	.data_v_i(1'bx), 
+	.data_i  ({128{1'bx}}),
+ 
+	.h_v_i(sram_v_i & sram_h_i), 
+	.h_i  (sram_data_i), 
+
+	.res_steam_v_i(gh_hash_v),
+	.res_v_o      (gh_res_v),
+	.res_o        (gh_res)
+	);
 
 
+// data pipe 
+wire [PHY_W-1:0] data; // next data
+wire [PHY_W-1:0] data_xor_aes; 
+wire [PHY_W-0:0] res_next; 
+
+assign data = gh_hash_v ? gh_res : data_i; 
+assign data_xor_aes = data ^ aes_hash_q[W-1-:PHY_W]; 
+assign res_next = 
 endmodule
