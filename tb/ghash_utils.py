@@ -74,12 +74,13 @@ async def read_res(dut) -> bytearray:
 	tmp = 0#byte buffer
 	res = bytearray(GHASH_BYTES_W) # init to 0
 	dut.gh_res_shift.value = 1
-	#await ClockCycles(dut.clk, 0)
+	await ClockCycles(dut.clk, 1)
+	assert(dut.gh_res_v.value == 1)
 	for i in range(0, GHASH_RES_CYCLES):
 		idx = int(i/4)
 		tmp = int(dut.gh_res.value)
 		res[idx] = res[idx] | (tmp << (6-2*(i%4)))
-		cocotb.log.info(f"{i} capture {dut.gh_res.value} buf {res[idx]}")
+		cocotb.log.debug(f"{i} capture {dut.gh_res.value} buf {res[idx]}")
 		await ClockCycles(dut.clk, 1)
 	dut.gh_res_shift.value = 0
 	return res
@@ -92,8 +93,8 @@ async def hash(dut,
 	assert len(data) % 16 == 0
 	max_pi = int(len(data) / 16)
 
-	cocotb.log.debug("\n\n\n\n============= New hash =================\n\n\n\n")	
-	cocotb.log.debug(f"partial key 0x{key.hex()} data 0x{data.hex()} (blocks {max_pi})")
+	cocotb.log.info("\n\n\n\n============= New hash =================\n\n\n\n")	
+	cocotb.log.info(f"partial key 0x{key.hex()} data 0x{data.hex()} (blocks {max_pi})")
 	
 	ki = 0 # key block sent
 	pi = 0 # plain text block sent
