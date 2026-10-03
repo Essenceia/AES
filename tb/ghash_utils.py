@@ -129,7 +129,7 @@ async def hash(dut,
 		if send:
 			await ClockCycles(dut.clk, 1) 
 			set_enc_invalid_data(dut)
-			await ClockCycles(dut.clk, GHASH_HASH_CYCLES-1) 
+			await ClockCycles(dut.clk, GHASH_HASH_CYCLES) 
 		else:
 			await ClockCycles(dut.clk, 1) 
 	set_enc_invalid_data(dut)
