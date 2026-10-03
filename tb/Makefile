@@ -7,6 +7,7 @@ FST ?= -fst # Use more efficient FST format
 TOPLEVEL_LANG ?= verilog
 SRC_DIR = $(PWD)/../src
 PROJECT_SOURCES = 
+SELECTED_TEST ?= default
 
 COMPILE_ARGS        += -DCOCOTB
 
@@ -37,12 +38,18 @@ endif
 # no need to include bf16 lib since they are ommited from tb
 COMPILE_ARGS 		+= -I$(SRC_DIR)
 
+ifeq ($(SELECTED_TEST),default)
 # Include the testbench sources:
 VERILOG_SOURCES += $(PWD)/tb.v
 TOPLEVEL = tb
-
 # List test modules to run, separated by commas and without the .py suffix:
 COCOTB_TEST_MODULES = test
+else
+VERILOG_SOURCES += $(PWD)/gcm_ae_tb.v
+TOPLEVEL = gcm_ae_tb
+# List test modules to run, separated by commas and without the .py suffix:
+COCOTB_TEST_MODULES = gcm_ae_tb.py
+endif
 
 $(info VERILOG_SOURCES=$(VERILOG_SOURCES))
 # include cocotb's make rules to take care of the simulator setup

@@ -30,8 +30,8 @@ module gcm_ae #(
 	// RX Eth - post address table lookup and match
 	input wire                   data_v_i, 
 	input wire                   data_enc_i, // encrypt incoming data
-	input wire [PHY_W-1:0]       data_i, 
 	input wire                   data_last_i, 
+	input wire [PHY_W-1:0]       data_i, 
 	// TX Eth
 	output wire                  data_v_o, 
 	output wire                  data_start_o, // start tx packet streamout 
