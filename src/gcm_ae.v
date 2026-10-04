@@ -25,7 +25,7 @@ module gcm_ae #(
 	input wire                   sram_v_i,
 	input wire                   sram_k_i,
 	input wire                   sram_h_i,
-	input wire [SRAM_W-1:0]      sram_data_i,
+	input wire [SRAM_W-1:0]      sram_i,
 	
 	// RX Eth - post address table lookup and match
 	input wire                   data_v_i, 
@@ -76,6 +76,7 @@ localparam FSM_C        = 3'd2;
 localparam FSM_ICV_CALC = 3'd3; 
 localparam FSM_ICV      = 3'd4; 
 reg [2:0] fsm_q; 
+wire payload_finished;  // last data seen 
 
 always @(posedge clk) begin
 	if (~rst_n) fsm_q <= FSM_IDLE; 
@@ -108,7 +109,6 @@ localparam FSM_AES_RES     = 3'd4;
 reg [2:0] fsm_aes_q; 
 
 
-wire payload_finished;  // last data seen 
 wire aes_res_v; 
 wire aes_force_tag; // force dropping of current block hash and calculation of tag hash
 always @(posedge clk) begin
@@ -135,6 +135,7 @@ always @(posedge clk)
 wire aes_hash_set; 
 wire aes_hash_shift; 
 
+wire [W-1:0]      aes_res;  
 reg [B_CNT_W-1:0] aes_hash_cnt_q;
 
 assign aes_hash_set   = aes_hash_cnt_q == B_CNT_MAX_MIN1; 
@@ -149,18 +150,18 @@ always @(posedge clk)
 
 // J0 is the same as the C block counter + 1, IV is 96 bits and is constant during 
 // then entire encryption
-wire [IV_W-1:0]  iv; 
-wire [CNT_W-1:0] iv_lsb;
-assign iv_lsb = (fsm_q == FSM_ICV_CALC) ? cnt_q : {{C_CNT_W-1{1'b0}}, 1'b1};
+wire [IV_W-1:0]    iv; 
+wire [C_CNT_W-1:0] iv_lsb;
+assign iv_lsb = (fsm_q == FSM_ICV_CALC) ? c_cnt_q : {{C_CNT_W-1{1'b0}}, 1'b1};
 assign iv     = { sci_i, pn_i, {32-C_CNT_W{1'b0}}, iv_lsb}; 
- 
+
 aes_compact m_aes(
 	.clk(clk), 
 	.rst_n(rst_n), 
 	
 	.start_i (fsm_aes_q == FSM_AES_LD_DATA), 
 	.data_v_i(fsm_aes_q == FSM_AES_LD_DATA),
-	.data_i  (iv), 
+	.data_i  ({iv, 32'd0}), 
 	
 	.key_v_i(fsm_aes_q == FSM_AES_LD_KEY), 
 	.key_i  (key_q), 
@@ -192,26 +193,29 @@ always @(posedge clk) begin
 		FSM_GHASH_RES:    fsm_gh_q <= ~gh_res_v? FSM_GHASH_IDLE: FSM_GHASH_RES;   
 	endcase
 end
-// GHASH final hash is valid for xor with aes hash to produce icv
-assign gh_hash_v = gh_res_v & ((fsm_gh_q == FSM_GHASH_HASH_L) | (fsm_gh_q == FSM_GHASH_RES)); 
 
 wire             gh_res_v; 
 wire [PHY_W-1:0] gh_res;
 
+// GHASH final hash is valid for xor with aes hash to produce icv
+assign gh_hash_v = gh_res_v & ((fsm_gh_q == FSM_GHASH_HASH_L) | (fsm_gh_q == FSM_GHASH_RES)); 
+
 /* next data to hash, shift in data PHY_W bits at a time, 
 clean to 0s when we trigger a partial block hash */
-wire gh_start_early; 
-wire gh_start;  // start ghash on full block 
+wire         gh_start_early; 
+wire         gh_start;  // start ghash on full block 
 reg  [W-1:0] gh_buff_q;  
 wire [W-1:0] gh_buff_rst; 
 
-assign gh_start_early = (fsm_gh_q == FSM_GHASH_A & (data_v_i & data_enc_v_i)) // A->C
+assign gh_start_early = (fsm_gh_q == FSM_GHASH_HASH_A & (data_v_i & data_enc_i)) // A->C
 					  | payload_finished; // A->L, C->L
 
 
 // guarantied to at least have 16B of A, so we do not need to clear on init
 localparam GHASH_BLOCK_CNT_W = 64;
-wire [W-1:0] gh_buff_l; 
+wire [W-1:0]     gh_buff_l;
+wire [PHY_W-0:0] res_next; 
+ 
 assign gh_buff_l   = {{GHASH_BLOCK_CNT_W-A_CNT_W{1'b0}}, a_cnt_q, {GHASH_BLOCK_CNT_W-C_CNT_W{1'b0}}, c_cnt_q};
 assign gh_buff_rst = payload_finished ? gh_buff_l : {res_next, {W-PHY_W{1'b0}}};
 always @(posedge clk) 
@@ -227,7 +231,7 @@ ghash #(.SRAM_W(SRAM_W), .PHY_W(PHY_W)) m_ghash(
 	.data_i  (gh_buff_q),
  
 	.h_v_i(sram_v_i & sram_h_i), 
-	.h_i  (sram_data_i), 
+	.h_i  (sram_i), 
 
 	.res_shift_i (gh_hash_v),
 	.res_v_o     (gh_res_v),
@@ -238,7 +242,6 @@ ghash #(.SRAM_W(SRAM_W), .PHY_W(PHY_W)) m_ghash(
 // data pipe 
 wire [PHY_W-1:0] data; // next data
 wire [PHY_W-1:0] data_xor_aes; 
-wire [PHY_W-0:0] res_next; 
 
 assign data = gh_hash_v ? gh_res : data_i; 
 assign data_xor_aes = data ^ aes_hash_q[W-1-:PHY_W]; 

@@ -50,10 +50,10 @@ gcm_ae m_gcm_ae(
 .sram_v_i    (gcm_sram_v),
 .sram_k_i    (gcm_sram_k),
 .sram_h_i    (gcm_sram_h),
-.sram_data_i (gcm_sram),
+.sram_i      (gcm_sram),
 
 .data_v_i    (gcm_rx_v),
-.data_env_i  (gcm_rx_enc),
+.data_enc_i  (gcm_rx_enc),
 .data_i      (gcm_rx), 
 .data_last_i (gcm_rx_last),
 
