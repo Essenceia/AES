@@ -53,7 +53,7 @@ always @(posedge clk)
 	if (sram_v_i & sram_k_i) key_q <= {key_q[W-SRAM_W-1:0], sram_i};  
 
 localparam B_CNT_MAX = W/PHY_W;
-localparam B_CNT_W = $clog2(B_CNT_W); 
+localparam B_CNT_W = $clog2(B_CNT_MAX); 
 localparam [B_CNT_W-1:0] B_CNT_MAX_MIN1 = B_CNT_MAX - 1; 
 
 // C block count, assuming a max of 16k Bytes

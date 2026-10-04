@@ -55,4 +55,5 @@ async def rst(dut):
 async def gcm_ae_simple_test(dut):
 	set_random_seed()
 	rst(dut)
+	await gcm_ae_utils.set_random_cinfig()
 	ClockCycles(dut.clk, 100)
