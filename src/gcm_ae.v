@@ -218,7 +218,7 @@ always @(posedge clk) begin
 	if (~rst_n) fsm_gh_q <= FSM_GHASH_IDLE; 
 	else case (fsm_gh_q) 
 		FSM_GHASH_IDLE:   fsm_gh_q <= sram_v_i & sram_h_i ? FSM_GHASH_LD_H: FSM_GHASH_IDLE; 
-		FSM_GHASH_LD_H:   fsm_gh_q <= ~sram_h_i ? FSM_GHASH_HASH_A: FSM_GHASH_LD_H; 
+		FSM_GHASH_LD_H:   fsm_gh_q <= ~sram_v_i ? FSM_GHASH_HASH_A: FSM_GHASH_LD_H; 
 		FSM_GHASH_HASH_A: fsm_gh_q <= data_v_i & data_enc_i? FSM_GHASH_HASH_C :
                                       data_v_i & data_last_i ? FSM_GHASH_HASH_L: FSM_GHASH_HASH_A;  
 		FSM_GHASH_HASH_C: fsm_gh_q <= payload_finished & gh_res_v ? FSM_GHASH_HASH_L: FSM_GHASH_HASH_C;
@@ -234,14 +234,20 @@ assign gh_hash_v = gh_res_v & ((fsm_gh_q == FSM_GHASH_HASH_L) | (fsm_gh_q == FSM
 /* next data to hash, shift in data PHY_W bits at a time, 
 clean to 0s when we trigger a partial block hash */
 wire         gh_start_early; 
-wire         gh_start;  // start ghash on full block 
+wire         gh_start_next;  // start ghash on full block 
+reg          gh_start_q; 
 reg  [W-1:0] gh_buff_q;  
 wire [W-1:0] gh_buff_rst; 
 
 assign gh_start_early = (fsm_gh_q == FSM_GHASH_HASH_A & (data_v_i & data_enc_i)) // A->C
 					  | payload_finished; // A->L, C->L
 
-assign gh_start = 1'b0; // TODO 
+assign gh_start_next = gh_start_early 
+                     | ((b_cnt_q == B_CNT_MAX_MIN1) & data_v_i); 
+always @(posedge clk) 
+	if (init_i) gh_start_q <= 1'b0;
+	else gh_start_q <= gh_start_next; 
+ 
 // guarantied to at least have 16B of A, so we do not need to clear on init
 localparam GHASH_BLOCK_CNT_W = 64;
 wire [W-1:0]     gh_buff_l;
@@ -257,7 +263,7 @@ ghash #(.SRAM_W(SRAM_W), .PHY_W(PHY_W)) m_ghash(
 	.clk  (clk), 
 	.rst_n(rst_n), 
 
-	.data_v_i(gh_start), 
+	.data_v_i(gh_start_q), 
 	.data_i  (gh_buff_q),
  
 	.h_v_i(sram_v_i & sram_h_i), 
