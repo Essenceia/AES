@@ -40,7 +40,7 @@ async def wr_sram_config(dut, conf: sram_config):
 		dut.gcm_sram_h.value = i in range(32,48) 
 		s[((i+1)%2+1)*8-1:((i+1)%2)*8] = b
 		dut.gcm_sram.value = s
-		cocotb.log.info(f"{i} b {hex(b)}")
+		cocotb.log.debug(f"{i} b {hex(b)}")
 		if i % 2 == 1:
 			await ClockCycles(dut.clk, 1) 
 	dut.gcm_sram_h.value = "X"		

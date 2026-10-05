@@ -49,8 +49,8 @@ wire gh_hash_v; // ghash final hash valid
 
 // key must be fully stored outside of aes as is needs to be refresed before 
 // each block
-reg [W-1:0] key_q; 
-reg         key_v; // has complete key
+reg [W-1:0] key_q;
+wire        key_v;  
 
 always @(posedge clk) 
 	if (sram_v_i & sram_k_i) key_q <= {key_q[W-SRAM_W-1:0], sram_i};  
@@ -147,7 +147,7 @@ always @(posedge clk) begin
                                       aes_res_v ? FSM_AES_RES: FSM_AES_HASH; 
 		FSM_AES_RES:     fsm_aes_q <= aes_force_tag ? FSM_AES_LD_KEY : 
                                       aes_hash_set ? FSM_AES_LD_KEY: FSM_AES_RES; // hold res until we have used up previous block's hash 
-		default:  fsm_aes_q <= FSM_AES_IDLE;  
+		default:         fsm_aes_q <= FSM_AES_IDLE;  
 	endcase
 end
 
@@ -158,15 +158,19 @@ always @(posedge clk)
 
 
 // previous aes hash
-wire aes_hash_shift; 
+wire         aes_hash_shift; 
+wire [W-1:0] aes_res; 
+reg          aes_hash_set_first_q;  
 
-wire [W-1:0]      aes_res;  
-
-assign aes_hash_set   = b_cnt_q == B_CNT_MAX_MIN1; 
+assign aes_hash_set = (c_cnt_q == B_CNT_MAX_MIN1) 
+                    | ~aes_hash_set_first_q & (fsm_aes_q == FSM_AES_RES); 
 `ifdef TB
 assert(aes_hash_set |-> aes_rev_v | fsm_aes_q == FSM_AES_RES); 
 `endif 
- 
+always @(posedge clk) 
+	if (init_i) aes_hash_set_first_q <= 1'b0;  
+	else aes_hash_set_first_q <= aes_hash_set_first_q | aes_res_v; 
+
 assign aes_hash_shift = (data_v_i & data_enc_i) | gh_hash_v; 
 always @(posedge clk) 
 	if (aes_hash_set) aes_hash_q <= aes_res; 
@@ -176,7 +180,7 @@ always @(posedge clk)
 // then entire encryption
 wire [W-1:0]    iv; 
 wire [C_CNT_W-1:0] iv_lsb;
-assign iv_lsb = (fsm_q == FSM_ICV_CALC) ? c_cnt_q : {{C_CNT_W-1{1'b0}}, 1'b1};
+assign iv_lsb = (fsm_q != FSM_ICV_CALC) ? iv_cnt_q : {{C_CNT_W-1{1'b0}}, 1'b1};
 assign iv     = { sci_i, pn_i, {32-C_CNT_W{1'b0}}, iv_lsb}; 
 
 aes_compact m_aes(
