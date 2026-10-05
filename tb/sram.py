@@ -20,3 +20,5 @@ class sram_config:
 		r += self.k
 		r += self.h 
 		return r
+	def __str__(self) -> str: 
+		return f"sram_config:\n\tpn= {self.pn.hex()}\n\tsci={self.sci.hex()}\n\tk=  {self.k.hex()}\n\th=  {self.h.hex()}\n"

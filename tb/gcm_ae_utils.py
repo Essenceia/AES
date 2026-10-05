@@ -26,7 +26,6 @@ async def wr_sram_config(dut, conf: sram_config):
 	sci = dut.gcm_sci.value 
 	cocotb.log.info(f"writing sram config {conf}")
 	for i, b in enumerate(raw_config):
-		cocotb.log.info(f"{i} b {hex(b)}")
 		if i in range(4,8): # 32 lsb of PN
 			pn[31:8] = pn[23:0] 
 			pn[7:0] = b
