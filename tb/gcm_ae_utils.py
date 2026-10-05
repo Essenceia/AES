@@ -24,6 +24,7 @@ async def wr_sram_config(dut, conf: sram_config):
 
 	pn = dut.gcm_pn.value 
 	sci = dut.gcm_sci.value 
+	s = dut.gcm_sram.value
 	cocotb.log.info(f"writing sram config {conf}")
 	for i, b in enumerate(raw_config):
 		if i in range(4,8): # 32 lsb of PN
@@ -37,8 +38,11 @@ async def wr_sram_config(dut, conf: sram_config):
 		dut.gcm_sram_v.value = i in range(16, 48)  		 	
 		dut.gcm_sram_k.value = i in range(16,32) 	
 		dut.gcm_sram_h.value = i in range(32,48) 
-		dut.gcm_sram.value = b
-		await ClockCycles(dut.clk, 1) 
+		s[((i+1)%2+1)*8-1:((i+1)%2)*8] = b
+		dut.gcm_sram.value = s
+		cocotb.log.info(f"{i} b {hex(b)}")
+		if i % 2 == 1:
+			await ClockCycles(dut.clk, 1) 
 	dut.gcm_sram_h.value = "X"		
 	dut.gcm_sram_k.value = "X"		
 	dut.gcm_sram.value = "X" * 16 		
