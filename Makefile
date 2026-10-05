@@ -10,8 +10,8 @@ LINT_FLAGS := -Wall -Wpedantic
 lint: lint_aes_compact lint_gcm_ae lint_ghash
 .PHONY: lint 
 
-lint_%:  
-	verilator $(WAIVER_FILE) --lint-only $(LINT_FLAGS) --no-timing $(RTL_DEPS) --top %
+lint_%: 
+	verilator $(WAIVER_FILE) --lint-only $(LINT_FLAGS) --no-timing $(RTL_DEPS) --top $(subst lint_,,$@)
 
 
 clean: 
