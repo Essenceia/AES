@@ -41,7 +41,6 @@ module gcm_ae #(
 reg [2:0] fsm_q; 
 
 wire gh_hash_v; // ghash final hash valid
-wire aes_enc_v; // apply aes encryption   
 
 // key must be fully stored outside of aes as is needs to be refresed before 
 // each block
@@ -135,6 +134,7 @@ reg [2:0] fsm_aes_q;
 
 wire aes_res_v; 
 wire aes_force_tag; // force dropping of current block hash and calculation of tag hash
+assign aes_force_tag = 1'b0; // TODO
 always @(posedge clk) begin
 	if (~rst_n | init_i) fsm_aes_q <= FSM_AES_IDLE; 
 	else case(fsm_aes_q) 
@@ -160,9 +160,8 @@ wire aes_hash_set;
 wire aes_hash_shift; 
 
 wire [W-1:0]      aes_res;  
-reg [B_CNT_W-1:0] aes_hash_cnt_q;
 
-assign aes_hash_set   = aes_hash_cnt_q == B_CNT_MAX_MIN1; 
+assign aes_hash_set   = b_cnt_q == B_CNT_MAX_MIN1; 
 `ifdef TB
 assert(aes_hash_set |-> aes_rev_v | fsm_aes_q == FSM_AES_RES); 
 `endif 
@@ -236,7 +235,7 @@ wire [W-1:0] gh_buff_rst;
 assign gh_start_early = (fsm_gh_q == FSM_GHASH_HASH_A & (data_v_i & data_enc_i)) // A->C
 					  | payload_finished; // A->L, C->L
 
-
+assign gh_start = 1'b0; // TODO 
 // guarantied to at least have 16B of A, so we do not need to clear on init
 localparam GHASH_BLOCK_CNT_W = 64;
 wire [W-1:0]     gh_buff_l;
