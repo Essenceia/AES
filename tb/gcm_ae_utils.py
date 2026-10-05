@@ -55,5 +55,22 @@ async def set_random_config(dut):
 	conf = sram_config()
 	conf.random()
 	await wr_sram_config(dut, conf) 
-	
-	
+
+# assuming no bubble in data 
+async def set_data(dut, data:bytearray, a_l:int):
+	l = len(data)
+	assert(a_l <= l)
+	assert(l >= 14)
+	for i in range(0, l*4): 
+		dut.gcm_rx_v.value = 1 
+		if i % 4 == 0: 
+			b = data[int(i/4)]  
+		dut.gcm_rx.value =0x3 & (b >> (i%4)*2)
+		dut.gcm_rx_last.value = 1 if i == 4*l-1 else 0 
+		dut.gcm_rx_enc.value = i in range(a_l*4, l*4)
+		await ClockCycles(dut.clk, 1)
+	dut.gcm_rx_v.value = 0 
+	dut.gcm_rx_enc.value = "X"
+	dut.gcm_rx_last.value = "X"
+	dut.gcm_rx.value = "X"*2
+	 

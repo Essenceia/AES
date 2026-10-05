@@ -58,4 +58,9 @@ async def gcm_ae_simple_test(dut):
 	set_random_seed()
 	await rst(dut)
 	await gcm_ae_utils.set_random_config(dut)
+	a_l = 60
+	data = bytearray(a_l)
+	for i in range(0, a_l):
+		data[i] = i 
+	await gcm_ae_utils.set_data(dut, data, a_l) 
 	await ClockCycles(dut.clk, 100)
