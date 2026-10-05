@@ -83,9 +83,9 @@ always @(posedge clk) begin
 	else case (fsm_q)
 		FSM_IDLE:     fsm_q <= init_i ? FSM_A: FSM_IDLE; 
 		FSM_A:        fsm_q <= (data_v_i & data_enc_i)? FSM_C : 
-					           payload_finished ? FSM_ICV_CACL: FSM_A; 
-		FSM_C:        fsm_q <= payload_finished ? FSM_ICV_CACL: FSM_C; 
-		FSM_ICV_CACL: fsm_q <= gh_hash_v  ? FSM_ICV: FSM_ICV_CALC; 
+					           payload_finished ? FSM_ICV_CALC: FSM_A; 
+		FSM_C:        fsm_q <= payload_finished ? FSM_ICV_CALC: FSM_C; 
+		FSM_ICV_CALC: fsm_q <= gh_hash_v  ? FSM_ICV: FSM_ICV_CALC; 
 		FSM_ICV:      fsm_q <= ~gh_hash_v ? FSM_IDLE: FSM_ICV;
 		default:      fsm_q <= FSM_IDLE; 
 	endcase
@@ -116,7 +116,7 @@ always @(posedge clk) begin
 	else case(fsm_aes_q) 
 		FSM_AES_IDLE:    fsm_aes_q <= key_v_q ? FSM_AES_LD_KEY : FSM_AES_IDLE;
 		FSM_AES_LD_KEY:  fsm_aes_q <= FSM_AES_LD_DATA; // load key
-		FSM_AES_LD_DATA: fsm_aes_q <= FSM_AES_LD_HASH;
+		FSM_AES_LD_DATA: fsm_aes_q <= FSM_AES_HASH;
 		FSM_AES_HASH:    fsm_aes_q <= aes_force_tag ? FSM_AES_LD_KEY : 
                                       aes_res_v ? FSM_AES_RES: FSM_AES_HASH; 
 		FSM_AES_RES:     fsm_aes_q <= aes_force_tag ? FSM_AES_LD_KEY : 
@@ -185,8 +185,8 @@ always @(posedge clk) begin
 	if (~rst_n) fsm_gh_q <= FSM_GHASH_IDLE; 
 	else case (fsm_gh_q) 
 		FSM_GHASH_IDLE:   fsm_gh_q <= sram_v_i & sram_h_i ? FSM_GHASH_LD_H: FSM_GHASH_IDLE; 
-		FSM_GHASH_LD_H:   fsm_gh_q <= ~sram_h_i ? FSM_GHASH_A: FSM_GHASH_LD_H; 
-		FSM_GHASH_HASH_A: fsm_gh_q <= data_v_i & data_enc_v_i? FSM_GHASH_HASH_C :
+		FSM_GHASH_LD_H:   fsm_gh_q <= ~sram_h_i ? FSM_GHASH_HASH_A: FSM_GHASH_LD_H; 
+		FSM_GHASH_HASH_A: fsm_gh_q <= data_v_i & data_enc_i? FSM_GHASH_HASH_C :
                                       data_v_i & data_last_i ? FSM_GHASH_HASH_L: FSM_GHASH_HASH_A;  
 		FSM_GHASH_HASH_C: fsm_gh_q <= payload_finished & gh_res_v ? FSM_GHASH_HASH_L: FSM_GHASH_HASH_C;
 		FSM_GHASH_HASH_L: fsm_gh_q <= gh_res_v? FSM_GHASH_RES: FSM_GHASH_HASH_L;
@@ -196,6 +196,7 @@ end
 
 wire             gh_res_v; 
 wire [PHY_W-1:0] gh_res;
+wire             gh_hash_res_early_unused; 
 
 // GHASH final hash is valid for xor with aes hash to produce icv
 assign gh_hash_v = gh_res_v & ((fsm_gh_q == FSM_GHASH_HASH_L) | (fsm_gh_q == FSM_GHASH_RES)); 
@@ -222,7 +223,6 @@ always @(posedge clk)
 	if (gh_start_early) gh_buff_q <= gh_buff_rst; 
 	else if (data_v_i) 	gh_buff_q <= { res_next , gh_buff_q[W-1:PHY_W]}; // do not shift on L 
 
-
 ghash #(.SRAM_W(SRAM_W), .PHY_W(PHY_W)) m_ghash(
 	.clk  (clk), 
 	.rst_n(rst_n), 
@@ -233,9 +233,10 @@ ghash #(.SRAM_W(SRAM_W), .PHY_W(PHY_W)) m_ghash(
 	.h_v_i(sram_v_i & sram_h_i), 
 	.h_i  (sram_i), 
 
-	.res_shift_i (gh_hash_v),
-	.res_v_o     (gh_res_v),
-	.res_o       (gh_res)
+	.res_shift_i   (gh_hash_v),
+	.res_early_v_o (gh_hash_res_early_unused),
+	.res_v_o       (gh_res_v),
+	.res_o         (gh_res)
 	);
 
 
