@@ -15,8 +15,6 @@ import time
 import aes_utils
 import ghash_utils 
 
-from array import array 
-
 import os
 
 GATES = os.getenv("GATES", False)

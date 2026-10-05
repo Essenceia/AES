@@ -9,11 +9,12 @@ from cocotb.triggers import ClockCycles
 from cocotb.types import Logic, LogicArray 
 
 import random 
+import time
 
-from array import array 
+import gcm_ae_utils
 
 import os
-
+ 
 GATES = os.getenv("GATES", False)
 
 CLK_UNIT="ns"
@@ -54,6 +55,6 @@ async def rst(dut):
 @cocotb.test()
 async def gcm_ae_simple_test(dut):
 	set_random_seed()
-	rst(dut)
-	await gcm_ae_utils.set_random_cinfig()
+	await rst(dut)
+	await gcm_ae_utils.set_random_config(dut)
 	ClockCycles(dut.clk, 100)

@@ -1,15 +1,22 @@
 import random
-from typing import NamedTuple
+from dataclasses import dataclass, field
 
-
-class sram_config(NamedTuple): 
-	pn: bytes = bytes(8) #64b 
-	sci: bytes = bytes(8) 
-	k: bytes = bytes(16) # 128 for now
-	h: bytes = bytes(16) 
+@dataclass
+class sram_config: 
+	pn: bytes  = field(default_factory= lambda: bytes(8)) #64b 
+	sci: bytes = field(default_factory= lambda: bytes(8)) 
+	k: bytes   = field(default_factory= lambda: bytes(16)) # 128 for now
+	h: bytes   = field(default_factory= lambda: bytes(16)) 
 
 	def random(self): 
 		self.pn = random.randbytes(8) 
 		self.sci = random.randbytes(8) 
 		self.k = random.randbytes(16) 
 		self.h = random.randbytes(16) 
+	def raw(self) -> bytearray:
+		r = bytearray()
+		r += self.pn 
+		r += self.sci 
+		r += self.k
+		r += self.h 
+		return r

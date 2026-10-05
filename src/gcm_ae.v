@@ -38,6 +38,11 @@ module gcm_ae #(
 	input wire [31:0]            pn_i, // bottom 32b of the PN
 	input wire [SCI_W-1:0]       sci_i 
 );
+localparam FSM_IDLE     = 3'd0; 
+localparam FSM_A        = 3'd1; 
+localparam FSM_C        = 3'd2; 
+localparam FSM_ICV_CALC = 3'd3; 
+localparam FSM_ICV      = 3'd4; 
 reg [2:0] fsm_q; 
 
 wire gh_hash_v; // ghash final hash valid
@@ -93,11 +98,7 @@ always @(posedge clk) begin
 end
 
 // main fsm 
-localparam FSM_IDLE     = 3'd0; 
-localparam FSM_A        = 3'd1; 
-localparam FSM_C        = 3'd2; 
-localparam FSM_ICV_CALC = 3'd3; 
-localparam FSM_ICV      = 3'd4; 
+
 wire payload_finished;  // last data seen 
 
 assign payload_finished = data_v_i & data_last_i; 
@@ -133,6 +134,7 @@ reg [2:0] fsm_aes_q;
 
 
 wire aes_res_v; 
+wire aes_hash_set; 
 wire aes_force_tag; // force dropping of current block hash and calculation of tag hash
 assign aes_force_tag = 1'b0; // TODO
 always @(posedge clk) begin
@@ -156,7 +158,6 @@ always @(posedge clk)
 
 
 // previous aes hash
-wire aes_hash_set; 
 wire aes_hash_shift; 
 
 wire [W-1:0]      aes_res;  
@@ -204,6 +205,11 @@ localparam FSM_GHASH_HASH_L  = 3'd4; // lengths
 localparam FSM_GHASH_RES     = 3'd5;
 
 reg [2:0] fsm_gh_q;
+
+wire             gh_res_v; 
+wire [PHY_W-1:0] gh_res;
+wire             gh_hash_res_early_unused; 
+
 always @(posedge clk) begin
 	if (~rst_n) fsm_gh_q <= FSM_GHASH_IDLE; 
 	else case (fsm_gh_q) 
@@ -217,10 +223,6 @@ always @(posedge clk) begin
 		default:          fsm_gh_q <= FSM_GHASH_IDLE;  
 	endcase
 end
-
-wire             gh_res_v; 
-wire [PHY_W-1:0] gh_res;
-wire             gh_hash_res_early_unused; 
 
 // GHASH final hash is valid for xor with aes hash to produce icv
 assign gh_hash_v = gh_res_v & ((fsm_gh_q == FSM_GHASH_HASH_L) | (fsm_gh_q == FSM_GHASH_RES)); 

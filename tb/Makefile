@@ -47,8 +47,7 @@ COCOTB_TEST_MODULES = test
 else
 VERILOG_SOURCES += $(PWD)/gcm_ae_tb.v
 TOPLEVEL = gcm_ae_tb
-# List test modules to run, separated by commas and without the .py suffix:
-COCOTB_TEST_MODULES = gcm_ae_tb.py
+COCOTB_TEST_MODULES = gcm_ae_tb
 endif
 
 $(info VERILOG_SOURCES=$(VERILOG_SOURCES))
