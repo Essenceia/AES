@@ -8,12 +8,8 @@ Pre-load aes(H) and K from SRAM
 module gcm_ae #(
 	parameter PHY_W = 2, 
 	localparam SCI_W = 64,
-	localparam IV_W = 96,
 	parameter W = 128,
 	parameter  SRAM_W = 16, 
-	localparam SRAM_ADDR_W = 5, 
-	localparam [SRAM_ADDR_W-1:0] SRAM_H_ADDR = 5'h0,
-	localparam [SRAM_ADDR_W-1:0] SRAM_K_ADDR = 5'h16,
 	parameter C_CNT_W = 10, // cipher block count
 	parameter A_CNT_W = 10  // clear text block count
 )(
@@ -36,38 +32,66 @@ module gcm_ae #(
 	output wire                  data_v_o, 
 	output wire                  data_start_o, // start tx packet streamout 
 	output wire                  data_last_o, 
-	output wire                  data_o, 
+	output wire [PHY_W-1:0]      data_o, 
 	
 	// read from RAM and shared over common interface
 	input wire [31:0]            pn_i, // bottom 32b of the PN
 	input wire [SCI_W-1:0]       sci_i 
 );
+reg [2:0] fsm_q; 
+
 wire gh_hash_v; // ghash final hash valid
 wire aes_enc_v; // apply aes encryption   
 
 // key must be fully stored outside of aes as is needs to be refresed before 
 // each block
 reg [W-1:0] key_q; 
-reg         key_v_q; // has complete key
+reg         key_v; // has complete key
+
 always @(posedge clk) 
 	if (sram_v_i & sram_k_i) key_q <= {key_q[W-SRAM_W-1:0], sram_i};  
 
+assign key_v = sram_v_i & sram_h_i; // H is after K
+
 localparam B_CNT_MAX = W/PHY_W;
 localparam B_CNT_W = $clog2(B_CNT_MAX); 
+/* verilator lint_off WIDTHTRUNC */
 localparam [B_CNT_W-1:0] B_CNT_MAX_MIN1 = B_CNT_MAX - 1; 
+/* verilator lint_on WIDTHTRUNC */
 
 // C block count, assuming a max of 16k Bytes
 // init value at 2 to not need an additional inc_32 before first aes 
 // cipher
+// Increment at the start of any new block 
 reg [C_CNT_W-1:0] iv_cnt_q; 
 reg [C_CNT_W-1:0] c_cnt_q; 
 reg [A_CNT_W-1:0] a_cnt_q; 
 wire c_inc_v; // aes result finished and we can start next block 
-wire a_inc_v;  
-always @(posedge clk) 
-	if (init_i) iv_cnt_q <= {{C_CNT_W-2{1'b0}}, 2'd2}; 
-	else iv_cnt_q <= iv_cnt_q + {{C_CNT_W-1{1'b0}}, c_inc_v}; 
+wire a_inc_v; 
 
+reg [B_CNT_W-1:0] b_cnt_q; 
+wire b_cnt_rst; 
+
+assign b_cnt_rst = init_i | ((fsm_q == FSM_A) & data_v_i & data_enc_i); // rst block cnt when switching from A->C
+
+always @(posedge clk) begin
+	if (b_cnt_rst) b_cnt_q <= {B_CNT_W{1'b0}};
+	else b_cnt_q <= b_cnt_q + {{B_CNT_W-1{1'b0}}, data_v_i};
+end
+
+assign a_inc_v = ~|b_cnt_q & (fsm_q == FSM_A) & data_v_i & ~data_enc_i; 
+assign c_inc_v = ~|b_cnt_q & (fsm_q == FSM_C) & data_v_i; 
+always @(posedge clk) begin
+	if (init_i) begin
+		 iv_cnt_q <= {{C_CNT_W-2{1'b0}}, 2'd2}; 
+		 c_cnt_q  <= {C_CNT_W{1'b0}}; 
+		 a_cnt_q  <= {A_CNT_W{1'b0}}; 
+	end else begin
+		iv_cnt_q <= iv_cnt_q + {{C_CNT_W-1{1'b0}}, c_inc_v}; 
+		c_cnt_q  <=  c_cnt_q + {{C_CNT_W-1{1'b0}}, c_inc_v};
+		a_cnt_q  <=  a_cnt_q + {{A_CNT_W-1{1'b0}}, a_inc_v};
+	end
+end
 
 // main fsm 
 localparam FSM_IDLE     = 3'd0; 
@@ -75,9 +99,9 @@ localparam FSM_A        = 3'd1;
 localparam FSM_C        = 3'd2; 
 localparam FSM_ICV_CALC = 3'd3; 
 localparam FSM_ICV      = 3'd4; 
-reg [2:0] fsm_q; 
 wire payload_finished;  // last data seen 
 
+assign payload_finished = data_v_i & data_last_i; 
 always @(posedge clk) begin
 	if (~rst_n) fsm_q <= FSM_IDLE; 
 	else case (fsm_q)
@@ -114,7 +138,7 @@ wire aes_force_tag; // force dropping of current block hash and calculation of t
 always @(posedge clk) begin
 	if (~rst_n | init_i) fsm_aes_q <= FSM_AES_IDLE; 
 	else case(fsm_aes_q) 
-		FSM_AES_IDLE:    fsm_aes_q <= key_v_q ? FSM_AES_LD_KEY : FSM_AES_IDLE;
+		FSM_AES_IDLE:    fsm_aes_q <= key_v ? FSM_AES_LD_KEY : FSM_AES_IDLE;
 		FSM_AES_LD_KEY:  fsm_aes_q <= FSM_AES_LD_DATA; // load key
 		FSM_AES_LD_DATA: fsm_aes_q <= FSM_AES_HASH;
 		FSM_AES_HASH:    fsm_aes_q <= aes_force_tag ? FSM_AES_LD_KEY : 
@@ -150,7 +174,7 @@ always @(posedge clk)
 
 // J0 is the same as the C block counter + 1, IV is 96 bits and is constant during 
 // then entire encryption
-wire [IV_W-1:0]    iv; 
+wire [W-1:0]    iv; 
 wire [C_CNT_W-1:0] iv_lsb;
 assign iv_lsb = (fsm_q == FSM_ICV_CALC) ? c_cnt_q : {{C_CNT_W-1{1'b0}}, 1'b1};
 assign iv     = { sci_i, pn_i, {32-C_CNT_W{1'b0}}, iv_lsb}; 
@@ -161,7 +185,7 @@ aes_compact m_aes(
 	
 	.start_i (fsm_aes_q == FSM_AES_LD_DATA), 
 	.data_v_i(fsm_aes_q == FSM_AES_LD_DATA),
-	.data_i  ({iv, 32'd0}), 
+	.data_i  (iv), 
 	
 	.key_v_i(fsm_aes_q == FSM_AES_LD_KEY), 
 	.key_i  (key_q), 
@@ -190,7 +214,8 @@ always @(posedge clk) begin
                                       data_v_i & data_last_i ? FSM_GHASH_HASH_L: FSM_GHASH_HASH_A;  
 		FSM_GHASH_HASH_C: fsm_gh_q <= payload_finished & gh_res_v ? FSM_GHASH_HASH_L: FSM_GHASH_HASH_C;
 		FSM_GHASH_HASH_L: fsm_gh_q <= gh_res_v? FSM_GHASH_RES: FSM_GHASH_HASH_L;
-		FSM_GHASH_RES:    fsm_gh_q <= ~gh_res_v? FSM_GHASH_IDLE: FSM_GHASH_RES;   
+		FSM_GHASH_RES:    fsm_gh_q <= ~gh_res_v? FSM_GHASH_IDLE: FSM_GHASH_RES;  
+		default:          fsm_gh_q <= FSM_GHASH_IDLE;  
 	endcase
 end
 
@@ -215,7 +240,7 @@ assign gh_start_early = (fsm_gh_q == FSM_GHASH_HASH_A & (data_v_i & data_enc_i))
 // guarantied to at least have 16B of A, so we do not need to clear on init
 localparam GHASH_BLOCK_CNT_W = 64;
 wire [W-1:0]     gh_buff_l;
-wire [PHY_W-0:0] res_next; 
+wire [PHY_W-1:0] res_next; 
  
 assign gh_buff_l   = {{GHASH_BLOCK_CNT_W-A_CNT_W{1'b0}}, a_cnt_q, {GHASH_BLOCK_CNT_W-C_CNT_W{1'b0}}, c_cnt_q};
 assign gh_buff_rst = payload_finished ? gh_buff_l : {res_next, {W-PHY_W{1'b0}}};
@@ -247,4 +272,11 @@ wire [PHY_W-1:0] data_xor_aes;
 assign data = gh_hash_v ? gh_res : data_i; 
 assign data_xor_aes = data ^ aes_hash_q[W-1-:PHY_W]; 
 assign res_next = fsm_q == FSM_A ? data : data_xor_aes;
+
+
+// output 
+assign data_v_o     = 1'bx; 
+assign data_start_o = 1'bx; 
+assign data_last_o  = 1'bx; 
+assign data_o       = res_next; 
 endmodule
