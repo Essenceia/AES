@@ -48,6 +48,7 @@ def set_random_seed():
 async def rst(dut):
 	dut.rst_n.value = 0
 	clk_task = start_clk(dut)
+	gcm_ae_utils.set_invalid(dut)
 	await ClockCycles(dut.clk, RST_CYCLES)
 	dut.rst_n.value = 1
 	await ClockCycles(dut.clk, 20)
@@ -57,4 +58,4 @@ async def gcm_ae_simple_test(dut):
 	set_random_seed()
 	await rst(dut)
 	await gcm_ae_utils.set_random_config(dut)
-	ClockCycles(dut.clk, 100)
+	await ClockCycles(dut.clk, 100)
