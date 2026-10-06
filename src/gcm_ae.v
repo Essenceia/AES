@@ -105,8 +105,10 @@ always @(posedge clk) begin
 	end
 end
 
+wire gh_res_v; 
+wire gh_res_early_v; 
 always @(posedge clk) begin
-	if (fsm_q == FSM_ICV_CALC) tag_cnt_q <= {B_CNT_W{1'b0}};
+	if (gh_res_early_v) tag_cnt_q <= {B_CNT_W{1'b0}};
 	else tag_cnt_q <= tag_cnt_q + {{B_CNT_W-1{1'b0}}, 1'b1};
 end
 
@@ -114,7 +116,6 @@ end
 
 wire payload_finished;  // last data seen 
 wire tag_v; 
-wire gh_res_v; 
 
 assign payload_finished = data_v_i & data_last_i; 
 always @(posedge clk) begin
@@ -125,7 +126,7 @@ always @(posedge clk) begin
 					           payload_finished ? FSM_ICV_CALC: FSM_A; 
 		FSM_C:        fsm_q <= payload_finished ? FSM_ICV_CALC: FSM_C; 
 		FSM_ICV_CALC: fsm_q <= gh_res_v & (fsm_gh_q == FSM_GHASH_HASH_L) ? FSM_ICV: FSM_ICV_CALC; 
-		FSM_ICV:      fsm_q <= tag_cnt_q == B_CNT_MAX_MIN2 ? FSM_IDLE: FSM_ICV;
+		FSM_ICV:      fsm_q <= tag_cnt_q == B_CNT_MAX_MIN1 ? FSM_IDLE: FSM_ICV;
 		default:      fsm_q <= FSM_IDLE; 
 	endcase
 end
@@ -218,7 +219,6 @@ Tracks what the current ghash module is hashing at the moment and what it should
  */ 
 
 wire [PHY_W-1:0] gh_res;
-wire             gh_hash_res_early_unused; 
 
 always @(posedge clk) begin
 	if (~rst_n) fsm_gh_q <= FSM_GHASH_IDLE; 
@@ -283,7 +283,7 @@ ghash #(.SRAM_W(SRAM_W), .PHY_W(PHY_W)) m_ghash(
 	.h_i  (sram_i), 
 
 	.res_shift_i   (tag_v),
-	.res_early_v_o (gh_hash_res_early_unused),
+	.res_early_v_o (gh_res_early_v),
 	.res_v_o       (gh_res_v),
 	.res_o         (gh_res)
 	);
@@ -301,6 +301,6 @@ assign res_next = fsm_q == FSM_A ? data : data_xor_aes;
 // output 
 assign data_v_o     = tag_v | data_v_i; 
 assign data_start_o = 1'bx; 
-assign data_last_o  = tag_v & (tag_cnt_q == B_CNT_MAX_MIN2); 
+assign data_last_o  = tag_v & (tag_cnt_q == B_CNT_MAX_MIN1); 
 assign data_o       = res_next; 
 endmodule

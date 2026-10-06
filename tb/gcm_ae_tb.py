@@ -62,5 +62,5 @@ async def gcm_ae_simple_test(dut):
 	data = bytearray(a_l)
 	for i in range(0, a_l):
 		data[i] = i 
-	await gcm_ae_utils.set_data(dut, data, a_l) 
+	await gcm_ae_utils.send_data(dut, data, a_l)
 	await ClockCycles(dut.clk, 100)

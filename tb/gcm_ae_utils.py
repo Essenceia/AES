@@ -3,6 +3,13 @@ from sram import sram_config
 import cocotb
 from cocotb.triggers import ClockCycles 
 
+import Crypto
+from Crypto.Cipher import AES
+
+import random 
+
+TIMEOUT = 2000
+
 def set_invalid(dut): 
 	dut.gcm_init.value = 0 
 	dut.gcm_pn.value = "X" * 32
@@ -74,4 +81,42 @@ async def set_data(dut, data:bytearray, a_l:int):
 	dut.gcm_rx_enc.value = "X"
 	dut.gcm_rx_last.value = "X"
 	dut.gcm_rx.value = "X"*2
-	 
+
+async def read_data(dut):
+	res = bytearray(b'')
+	b = 0
+	i = 0
+	t = 0
+	while (t < TIMEOUT):
+		if (dut.gcm_tx_v.value == 1):
+			tmp = int(dut.gcm_tx.value)
+			b = b | (tmp << 2*(i%4)) 
+			if i % 4 == 3: 
+				res.append(b) 
+				b = 0	
+			i = i + 1
+		t = t + 1
+		if (dut.gcm_tx_v.value == 1 and dut.gcm_tx_last.value == 1):
+			break
+		await ClockCycles(dut.clk, 1)	
+	return res
+
+async def send_data(dut, data: bytearray, a_l:int): 
+	# trigger both threads at the time 	
+	wr = cocotb.start_soon(set_data(dut, data, a_l)) 
+	rd = cocotb.start_soon(read_data(dut))
+	await wr
+	result = await rd
+	cocotb.log.info(f"res  0x{result.hex()} length={len(result)}")
+	check_result(data, a_l, result)
+
+def check_result(plain: bytearray, a_l:int, result:bytearray):
+	assert (len(plain) + 16) == len(result), f"length of reults is expact to be 16 longer than length of original expected {len(plain)+16} got {len(result)}" 
+	key = random.randbytes(16)
+	cipher = AES.new(key, AES.MODE_GCM)
+	cipher.update(plain[0:a_l])
+	ciphertext, tag = cipher.encrypt_and_digest(plain[a_l:])
+	expected_res = plain[0:a_l] + ciphertext + tag
+	cocotb.log.info(f"cipher 0x{ciphertext.hex()}")
+	cocotb.log.info(f"tag    0x{tag.hex()}")
+	assert expected_res == result, f"missmatch\ngot: 0x{result.hex()}\nexp: 0x{expected_res.hex()}"	

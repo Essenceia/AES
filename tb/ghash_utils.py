@@ -149,9 +149,6 @@ async def hash(dut,
 
 	ghash_expected = __ghash(key, data) 
 	cocotb.log.debug(f"expected 0x{ghash_expected.hex()}\ngotten   0x{res.hex()}") 
-#	cipher = AES.new(key, AES.MODE_ECB)
-#	ciphertext = cipher.encrypt(data)
-#
 	assert res == ghash_expected, f"cipher result missmatch\nexpected 0x{ghash_expected.hex()}\ngotten   0x{res.hex()}"
  
 	
