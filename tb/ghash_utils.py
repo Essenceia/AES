@@ -93,8 +93,8 @@ async def hash(dut,
 	assert len(data) % 16 == 0
 	max_pi = int(len(data) / 16)
 
-	cocotb.log.info("\n\n\n\n============= New hash =================\n\n\n\n")	
-	cocotb.log.info(f"partial key 0x{key.hex()} data 0x{data.hex()} (blocks {max_pi})")
+	cocotb.log.debug("\n\n\n\n============= New hash =================\n\n\n\n")	
+	cocotb.log.info(f"partial key 0x{key.hex()}\ndata 0x{data.hex()} (blocks {max_pi})")
 	
 	ki = 0 # key block sent
 	pi = 0 # plain text block sent
@@ -148,6 +148,7 @@ async def hash(dut,
 	assert timeout < max_timeout, "timeout reached without res_v"
 
 	ghash_expected = __ghash(key, data) 
+	cocotb.log.info(f"ghash result gotten 0x{res.hex()}") 
 	cocotb.log.debug(f"expected 0x{ghash_expected.hex()}\ngotten   0x{res.hex()}") 
 	assert res == ghash_expected, f"cipher result missmatch\nexpected 0x{ghash_expected.hex()}\ngotten   0x{res.hex()}"
  
