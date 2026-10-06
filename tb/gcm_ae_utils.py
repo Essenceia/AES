@@ -61,6 +61,7 @@ async def set_data(dut, data:bytearray, a_l:int):
 	l = len(data)
 	assert(a_l <= l)
 	assert(l >= 14)
+	cocotb.log.info(f"data 0x{data.hex()} A_length={a_l}")
 	for i in range(0, l*4): 
 		dut.gcm_rx_v.value = 1 
 		if i % 4 == 0: 

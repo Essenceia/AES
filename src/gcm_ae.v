@@ -162,7 +162,7 @@ wire         aes_hash_shift;
 wire [W-1:0] aes_res; 
 reg          aes_hash_set_first_q;  
 
-assign aes_hash_set = (c_cnt_q == B_CNT_MAX_MIN1) 
+assign aes_hash_set = (b_cnt_q == B_CNT_MAX_MIN1) 
                     | ~aes_hash_set_first_q & (fsm_aes_q == FSM_AES_RES); 
 `ifdef TB
 assert(aes_hash_set |-> aes_rev_v | fsm_aes_q == FSM_AES_RES); 
@@ -259,12 +259,17 @@ always @(posedge clk)
 	if (gh_start_early) gh_buff_q <= gh_buff_rst; 
 	else if (data_v_i) 	gh_buff_q <= { res_next , gh_buff_q[W-1:PHY_W]}; // do not shift on L 
 
+wire [W-1:0] gh_buff_swap; 
+byteswap #(.W(W/8)) m_gh_byteswap(
+.i(gh_buff_q), 
+.o(gh_buff_swap));
+
 ghash #(.SRAM_W(SRAM_W), .PHY_W(PHY_W)) m_ghash(
 	.clk  (clk), 
 	.rst_n(rst_n), 
 
 	.data_v_i(gh_start_q), 
-	.data_i  (gh_buff_q),
+	.data_i  (gh_buff_swap),
  
 	.h_v_i(sram_v_i & sram_h_i), 
 	.h_i  (sram_i), 
