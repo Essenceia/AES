@@ -67,6 +67,7 @@ localparam B_CNT_MAX = W/PHY_W;
 localparam B_CNT_W = $clog2(B_CNT_MAX); 
 /* verilator lint_off WIDTHTRUNC */
 localparam [B_CNT_W-1:0] B_CNT_MAX_MIN1 = B_CNT_MAX - 1; 
+localparam [B_CNT_W-1:0] B_CNT_MAX_MIN2 = B_CNT_MAX - 2; 
 /* verilator lint_on WIDTHTRUNC */
 
 // C block count, assuming a max of 16k Bytes
@@ -124,7 +125,7 @@ always @(posedge clk) begin
 					           payload_finished ? FSM_ICV_CALC: FSM_A; 
 		FSM_C:        fsm_q <= payload_finished ? FSM_ICV_CALC: FSM_C; 
 		FSM_ICV_CALC: fsm_q <= gh_res_v & (fsm_gh_q == FSM_GHASH_HASH_L) ? FSM_ICV: FSM_ICV_CALC; 
-		FSM_ICV:      fsm_q <= tag_cnt_q == B_CNT_MAX_MIN1 ? FSM_IDLE: FSM_ICV;
+		FSM_ICV:      fsm_q <= tag_cnt_q == B_CNT_MAX_MIN2 ? FSM_IDLE: FSM_ICV;
 		default:      fsm_q <= FSM_IDLE; 
 	endcase
 end
@@ -298,8 +299,8 @@ assign res_next = fsm_q == FSM_A ? data : data_xor_aes;
 
 
 // output 
-assign data_v_o     = 1'bx; 
+assign data_v_o     = tag_v | data_v_i; 
 assign data_start_o = 1'bx; 
-assign data_last_o  = 1'bx; 
+assign data_last_o  = tag_v & (tag_cnt_q == B_CNT_MAX_MIN2); 
 assign data_o       = res_next; 
 endmodule
