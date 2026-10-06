@@ -56,11 +56,14 @@ async def wr_sram_config(dut, conf: sram_config):
 	dut.gcm_sram_v.value = 0		
 
 async def set_random_config(dut): 
+	conf = sram_config()
+	conf.random()
+	await set_config(conf)	
+
+async def set_config(dut, conf: sram_config): 
 	dut.gcm_init.value = 1
 	await ClockCycles(dut.clk, 1) 
 	dut.gcm_init.value = 0
-	conf = sram_config()
-	conf.random()
 	await wr_sram_config(dut, conf) 
 
 # assuming no bubble in data 

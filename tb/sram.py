@@ -8,6 +8,12 @@ class sram_config:
 	k: bytes   = field(default_factory= lambda: bytes(16)) # 128 for now
 	h: bytes   = field(default_factory= lambda: bytes(16)) 
 
+	def __init__(self, pn: bytes(8), sci:bytes(8), k:bytes(16), h:bytes(16)):
+		self.pn = pn
+		self.sci = sci 
+		self.k = k 
+		self.h = h
+
 	def random(self): 
 		self.pn = random.randbytes(8) 
 		self.sci = random.randbytes(8) 
