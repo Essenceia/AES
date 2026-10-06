@@ -45,7 +45,13 @@ localparam FSM_ICV_CALC = 3'd3;
 localparam FSM_ICV      = 3'd4; 
 reg [2:0] fsm_q; 
 
-wire gh_hash_v; // ghash final hash valid
+localparam FSM_GHASH_IDLE    = 3'd0; 
+localparam FSM_GHASH_LD_H    = 3'd1; 
+localparam FSM_GHASH_HASH_A  = 3'd2; // authentification data
+localparam FSM_GHASH_HASH_C  = 3'd3; // ciphered data
+localparam FSM_GHASH_HASH_L  = 3'd4; // lengths
+localparam FSM_GHASH_RES     = 3'd5;
+reg [2:0] fsm_gh_q;
 
 // key must be fully stored outside of aes as is needs to be refresed before 
 // each block
@@ -74,6 +80,7 @@ wire c_inc_v; // aes result finished and we can start next block
 wire a_inc_v; 
 
 reg [B_CNT_W-1:0] b_cnt_q; 
+reg [B_CNT_W-1:0] tag_cnt_q; 
 wire b_cnt_rst; 
 
 assign b_cnt_rst = init_i | ((fsm_q == FSM_A) & data_v_i & data_enc_i); // rst block cnt when switching from A->C
@@ -97,9 +104,16 @@ always @(posedge clk) begin
 	end
 end
 
+always @(posedge clk) begin
+	if (fsm_q == FSM_ICV_CALC) tag_cnt_q <= {B_CNT_W{1'b0}};
+	else tag_cnt_q <= tag_cnt_q + {{B_CNT_W-1{1'b0}}, 1'b1};
+end
+
 // main fsm 
 
 wire payload_finished;  // last data seen 
+wire tag_v; 
+wire gh_res_v; 
 
 assign payload_finished = data_v_i & data_last_i; 
 always @(posedge clk) begin
@@ -109,12 +123,12 @@ always @(posedge clk) begin
 		FSM_A:        fsm_q <= (data_v_i & data_enc_i)? FSM_C : 
 					           payload_finished ? FSM_ICV_CALC: FSM_A; 
 		FSM_C:        fsm_q <= payload_finished ? FSM_ICV_CALC: FSM_C; 
-		FSM_ICV_CALC: fsm_q <= gh_hash_v  ? FSM_ICV: FSM_ICV_CALC; 
-		FSM_ICV:      fsm_q <= ~gh_hash_v ? FSM_IDLE: FSM_ICV;
+		FSM_ICV_CALC: fsm_q <= gh_res_v & (fsm_gh_q == FSM_GHASH_HASH_L) ? FSM_ICV: FSM_ICV_CALC; 
+		FSM_ICV:      fsm_q <= tag_cnt_q == B_CNT_MAX_MIN1 ? FSM_IDLE: FSM_ICV;
 		default:      fsm_q <= FSM_IDLE; 
 	endcase
 end
-
+assign tag_v = (fsm_q == FSM_ICV) | (fsm_q == FSM_ICV_CALC) & gh_res_v; 
 /* 
 Calculate the next aes block hash one block ahead such that we can 
 apply the hash to the incoming data as it streams in and directly 
@@ -171,7 +185,7 @@ always @(posedge clk)
 	if (init_i) aes_hash_set_first_q <= 1'b0;  
 	else aes_hash_set_first_q <= aes_hash_set_first_q | aes_res_v; 
 
-assign aes_hash_shift = (data_v_i & data_enc_i) | gh_hash_v; 
+assign aes_hash_shift = (data_v_i & data_enc_i) | tag_v; 
 always @(posedge clk) 
 	if (aes_hash_set) aes_hash_q <= aes_res; 
 	else if (aes_hash_shift) aes_hash_q <= {aes_hash_q[W-PHY_W-1:0], {PHY_W{1'b0}}};
@@ -201,16 +215,7 @@ aes_compact m_aes(
 /* GHASH fsm
 Tracks what the current ghash module is hashing at the moment and what it should hash next.
  */ 
-localparam FSM_GHASH_IDLE    = 3'd0; 
-localparam FSM_GHASH_LD_H    = 3'd1; 
-localparam FSM_GHASH_HASH_A  = 3'd2; // authentification data
-localparam FSM_GHASH_HASH_C  = 3'd3; // ciphered data
-localparam FSM_GHASH_HASH_L  = 3'd4; // lengths
-localparam FSM_GHASH_RES     = 3'd5;
 
-reg [2:0] fsm_gh_q;
-
-wire             gh_res_v; 
 wire [PHY_W-1:0] gh_res;
 wire             gh_hash_res_early_unused; 
 
@@ -227,9 +232,6 @@ always @(posedge clk) begin
 		default:          fsm_gh_q <= FSM_GHASH_IDLE;  
 	endcase
 end
-
-// GHASH final hash is valid for xor with aes hash to produce icv
-assign gh_hash_v = gh_res_v & ((fsm_gh_q == FSM_GHASH_HASH_L) | (fsm_gh_q == FSM_GHASH_RES)); 
 
 /* next data to hash, shift in data PHY_W bits at a time, 
 clean to 0s when we trigger a partial block hash */
@@ -250,19 +252,24 @@ always @(posedge clk)
  
 // guarantied to at least have 16B of A, so we do not need to clear on init
 localparam GHASH_BLOCK_CNT_W = 64;
-wire [W-1:0]     gh_buff_l;
 wire [PHY_W-1:0] res_next; 
- 
-assign gh_buff_l   = {{GHASH_BLOCK_CNT_W-A_CNT_W{1'b0}}, a_cnt_q, {GHASH_BLOCK_CNT_W-C_CNT_W{1'b0}}, c_cnt_q};
-assign gh_buff_rst = payload_finished ? gh_buff_l : {res_next, {W-PHY_W{1'b0}}};
+wire [W-1:0]     gh_buff_l;
+wire [W-1:0]     gh_buff_l_swap;
+
+assign gh_buff_l = {{GHASH_BLOCK_CNT_W-A_CNT_W{1'b0}}, a_cnt_q, {GHASH_BLOCK_CNT_W-C_CNT_W{1'b0}}, c_cnt_q};
+byteswap #(.W(W/8)) m_gh_l_byteswap(
+	.i(gh_buff_l), 
+	.o(gh_buff_l_swap));
+
+assign gh_buff_rst = payload_finished ? gh_buff_l_swap : {res_next, {W-PHY_W{1'b0}}};
 always @(posedge clk) 
 	if (gh_start_early) gh_buff_q <= gh_buff_rst; 
 	else if (data_v_i) 	gh_buff_q <= { res_next , gh_buff_q[W-1:PHY_W]}; // do not shift on L 
 
 wire [W-1:0] gh_buff_swap; 
 byteswap #(.W(W/8)) m_gh_byteswap(
-.i(gh_buff_q), 
-.o(gh_buff_swap));
+	.i(gh_buff_q), 
+	.o(gh_buff_swap));
 
 ghash #(.SRAM_W(SRAM_W), .PHY_W(PHY_W)) m_ghash(
 	.clk  (clk), 
@@ -274,7 +281,7 @@ ghash #(.SRAM_W(SRAM_W), .PHY_W(PHY_W)) m_ghash(
 	.h_v_i(sram_v_i & sram_h_i), 
 	.h_i  (sram_i), 
 
-	.res_shift_i   (gh_hash_v),
+	.res_shift_i   (tag_v),
 	.res_early_v_o (gh_hash_res_early_unused),
 	.res_v_o       (gh_res_v),
 	.res_o         (gh_res)
@@ -285,7 +292,7 @@ ghash #(.SRAM_W(SRAM_W), .PHY_W(PHY_W)) m_ghash(
 wire [PHY_W-1:0] data; // next data
 wire [PHY_W-1:0] data_xor_aes; 
 
-assign data = gh_hash_v ? gh_res : data_i; 
+assign data = tag_v ? gh_res : data_i; 
 assign data_xor_aes = data ^ aes_hash_q[W-1-:PHY_W]; 
 assign res_next = fsm_q == FSM_A ? data : data_xor_aes;
 
