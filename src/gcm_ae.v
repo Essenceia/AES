@@ -53,6 +53,9 @@ localparam FSM_GHASH_HASH_L        = 3'd4; // lengths
 localparam FSM_GHASH_RES           = 3'd5;
 reg [2:0] fsm_gh_q;
 
+
+wire [PHY_W-1:0] data_xor_aes; 
+
 // key must be fully stored outside of aes as is needs to be refresed before 
 // each block
 reg [W-1:0] key_q;
@@ -275,6 +278,8 @@ wire          gh_buff_c_rst;
 reg  [W-1:0]  gh_buff_c_q; 
 
 assign gh_start_next = ((b_cnt_q == B_CNT_MAX_MIN1) & data_v_i)
+                     | ((fsm_gh_q == FSM_GHASH_HASH_A) & (fsm_q != FSM_A) & ~gh_active) // A dff hash pending
+					 | ((fsm_gh_q == FSM_GHASH_HASH_C) & (fsm_q != FSM_C) & ~gh_active)
 					 | (fsm_gh_q == FSM_GHASH_HASH_L) & ~gh_active;
 always @(posedge clk) 
 	if (init_i) gh_start_q <= 1'b0;
@@ -297,10 +302,18 @@ byteswap #(.W(W/8)) m_gh_l_byteswap(
 assign gh_buff_rst = (fsm_q == FSM_A) & ~|b_cnt_q // A block start, even if A is guarantied to be at least 16B on init, this allows us to do zero append 
                    | gh_l_start_next;  // L start next 
 
-assign gh_buff_rst_next = gh_l_start_next? gh_buff_l_swap : {data_i, {W-PHY_W{1'b0}}};
+wire [W-1:0] gh_buff_rst_next_data; // iverilog bugs
+wire [W-1:0] gh_buff_next;  
+assign gh_buff_rst_next[W-1-:PHY_W]  = data_i;
+assign gh_buff_rst_next[W-PHY_W-1:0] = {W-PHY_W{1'b0}};
+assign gh_buff_rst_next = gh_l_start_next? gh_buff_l_swap : gh_buff_rst_next_data;
+
+assign gh_buff_next[W-1-:PHY_W]  = data_i; 
+assign gh_buff_next[W-PHY_W-1:0] = gh_buff_q[W-1:PHY_W];
+
 always @(posedge clk) 
 	if (gh_buff_rst)  gh_buff_q <= gh_buff_rst_next; // A data guaranties 4 cycles minumum so it will be set for A
-	else if (data_v_i & ~data_enc_i) gh_buff_q   <= { data_i , gh_buff_q[W-1:PHY_W]}; // do not shift on L 
+	else if (data_v_i & ~data_enc_i) gh_buff_q <= gh_buff_next; // do not shift on L 
 always @(posedge clk) 
 	if (init_i | gh_start_next) gh_buff_pending_q <= 1'b0; 
 	else gh_buff_pending_q   <= gh_buff_pending_q | (data_v_i & ~data_enc_i); 
@@ -343,7 +356,6 @@ ghash #(.SRAM_W(SRAM_W), .PHY_W(PHY_W)) m_ghash(
 
 // data pipe 
 wire [PHY_W-1:0] data; // next data
-wire [PHY_W-1:0] data_xor_aes; 
 
 assign data = tag_v ? gh_res : data_i; 
 assign data_xor_aes = data ^ aes_hash_q[W-1-:PHY_W]; 
