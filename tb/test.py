@@ -126,17 +126,18 @@ async def ghash_test_vector(dut):
 		   b'\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F\x20' \
 		   b'\x21\x22\x23\x24\x25\x26\x27\x28\x29\x2A\x2B\x2C\x2D\x2E\x2F\x30' \
 		   b'\x31\x32\x33\x34\x00\x01'
+	p_l = len(ptxt)
 	if len(ptxt) % 16 :
 		# round to blocks of 16 bytes
 		ptxt += b'\x00' * (16 - len(ptxt)%16)
 	assert(len(ptxt) % 16 == 0) 
 	# append lengths 
-	ptxt += b'\x00' * 15
-	ptxt += len(ptxt).to_bytes(1, byteorder='big')
-	ptxt += b'\x00' * 16 
+	ptxt += int(p_l*8).to_bytes(8, byteorder='big')
+	ptxt += b'\x00' * 8 
 	key = b'\x73\xA2\x3D\x80\x12\x1D\xE2\xD5\xA8\x50\x25\x3F\xCF\x43\x12\x0E' #H
 	await ghash_utils.hash(dut, ptxt, key)
 	await ClockCycles(dut.clk, 1) # for readability
+
 
 
 
