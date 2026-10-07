@@ -86,11 +86,11 @@ reg  [B_CNT_W-1:0] tag_cnt_q;
 wire b_cnt_rst; 
 
 assign b_cnt_rst  = init_i | ((fsm_q == FSM_A) & data_v_i & data_enc_i); // rst block cnt when switching from A->C
-assign b_cnt_next = b_cnt_q + {{B_CNT_W-1{1'b0}}, data_v_i};
+assign b_cnt_next = b_cnt_q + {{B_CNT_W-1{1'b0}}, 1'b1};
 
 always @(posedge clk) 
 	if (b_cnt_rst) b_cnt_q <= {B_CNT_W{1'b0}};
-	else b_cnt_q <= b_cnt_next;
+	else if (data_v_i) b_cnt_q <= b_cnt_next;
 
 assign a_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_A) & data_v_i & ~data_enc_i; 
 assign c_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_C) & data_v_i; 
@@ -116,11 +116,11 @@ wire a_cnt_lsb_en;
 assign c_cnt_lsb_en = (fsm_q == FSM_C) & data_v_i & data_last_i; 
 always @(posedge clk)
 	if (init_i) c_cnt_lsb_q <= {B_CNT_W{1'b0}}; // need to rst since there might not be any C in pkt
-	else if (c_cnt_lsb_en) c_cnt_lsb_q <= b_cnt_q; 
+	else if (c_cnt_lsb_en) c_cnt_lsb_q <= b_cnt_next; 
 
 assign a_cnt_lsb_en = (fsm_q == FSM_A) & data_v_i & (data_enc_i | data_last_i); 
 always @(posedge clk)
-	if (a_cnt_lsb_en) a_cnt_lsb_q <= b_cnt_q;  
+	if (a_cnt_lsb_en) a_cnt_lsb_q <= b_cnt_next;  
 
 wire gh_res_v; 
 wire gh_res_early_v; 
