@@ -75,42 +75,58 @@ localparam [B_CNT_W-1:0] B_CNT_MAX_MIN2 = B_CNT_MAX - 2;
 // cipher
 // Increment at the start of any new block 
 reg [C_CNT_W-1:0] iv_cnt_q; 
-reg [C_CNT_W-1:0] c_cnt_q; 
-reg [A_CNT_W-1:0] a_cnt_q; 
-wire c_inc_v; // aes result finished and we can start next block 
-wire a_inc_v; 
+reg [C_CNT_W-1:0] c_cnt_msb_q; 
+reg [A_CNT_W-1:0] a_cnt_msb_q;
+wire c_cnt_msb_en; // aes result finished and we can start next block 
+wire a_cnt_msb_en; 
 
-reg [B_CNT_W-1:0] b_cnt_q; 
-reg [B_CNT_W-1:0] tag_cnt_q; 
+reg  [B_CNT_W-1:0] b_cnt_q; 
+wire [B_CNT_W-1:0] b_cnt_next; 
+reg  [B_CNT_W-1:0] tag_cnt_q; 
 wire b_cnt_rst; 
 
-assign b_cnt_rst = init_i | ((fsm_q == FSM_A) & data_v_i & data_enc_i); // rst block cnt when switching from A->C
+assign b_cnt_rst  = init_i | ((fsm_q == FSM_A) & data_v_i & data_enc_i); // rst block cnt when switching from A->C
+assign b_cnt_next = b_cnt_q + {{B_CNT_W-1{1'b0}}, data_v_i};
 
-always @(posedge clk) begin
+always @(posedge clk) 
 	if (b_cnt_rst) b_cnt_q <= {B_CNT_W{1'b0}};
-	else b_cnt_q <= b_cnt_q + {{B_CNT_W-1{1'b0}}, data_v_i};
-end
+	else b_cnt_q <= b_cnt_next;
 
-assign a_inc_v = ~|b_cnt_q & (fsm_q == FSM_A) & data_v_i & ~data_enc_i; 
-assign c_inc_v = ~|b_cnt_q & (fsm_q == FSM_C) & data_v_i; 
+assign a_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_A) & data_v_i & ~data_enc_i; 
+assign c_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_C) & data_v_i; 
 always @(posedge clk) begin
 	if (init_i) begin
-		 iv_cnt_q <= {{C_CNT_W-2{1'b0}}, 2'd2}; 
-		 c_cnt_q  <= {C_CNT_W{1'b0}}; 
-		 a_cnt_q  <= {A_CNT_W{1'b0}}; 
-	end else begin
-		iv_cnt_q <= iv_cnt_q + {{C_CNT_W-1{1'b0}}, c_inc_v}; 
-		c_cnt_q  <=  c_cnt_q + {{C_CNT_W-1{1'b0}}, c_inc_v};
-		a_cnt_q  <=  a_cnt_q + {{A_CNT_W-1{1'b0}}, a_inc_v};
+		 iv_cnt_q 	 <= {{C_CNT_W-2{1'b0}}, 2'd2}; 
+		 c_cnt_msb_q <= {C_CNT_W{1'b0}}; 
+	end else if (c_cnt_msb_en) begin
+		iv_cnt_q     <= iv_cnt_q    + {{C_CNT_W-1{1'b0}}, c_cnt_msb_en}; 
+		c_cnt_msb_q  <= c_cnt_msb_q + {{C_CNT_W-1{1'b0}}, c_cnt_msb_en};
 	end
 end
+always @(posedge clk) 
+	if (init_i) a_cnt_msb_q <= {A_CNT_W{1'b0}};
+	else if (a_cnt_msb_en) a_cnt_msb_q <= a_cnt_msb_q + {{A_CNT_W-1{1'b0}}, 1'b1};
+
+// lsb
+reg [B_CNT_W-1:0] a_cnt_lsb_q;  
+reg [B_CNT_W-1:0] c_cnt_lsb_q;  
+wire c_cnt_lsb_en; 
+wire a_cnt_lsb_en; 
+
+assign c_cnt_lsb_en = (fsm_q == FSM_C) & data_v_i & data_last_i; 
+always @(posedge clk)
+	if (init_i) c_cnt_lsb_q <= {B_CNT_W{1'b0}}; // need to rst since there might not be any C in pkt
+	else if (c_cnt_lsb_en) c_cnt_lsb_q <= b_cnt_q; 
+
+assign a_cnt_lsb_en = (fsm_q == FSM_A) & data_v_i & (data_enc_i | data_last_i); 
+always @(posedge clk)
+	if (a_cnt_lsb_en) a_cnt_lsb_q <= b_cnt_q;  
 
 wire gh_res_v; 
 wire gh_res_early_v; 
-always @(posedge clk) begin
+always @(posedge clk) 
 	if (gh_res_early_v) tag_cnt_q <= {B_CNT_W{1'b0}};
 	else tag_cnt_q <= tag_cnt_q + {{B_CNT_W-1{1'b0}}, 1'b1};
-end
 
 // main fsm 
 
@@ -257,8 +273,8 @@ wire [PHY_W-1:0] res_next;
 wire [W-1:0]     gh_buff_l;
 wire [W-1:0]     gh_buff_l_swap;
 
-wire [GHASH_BLOCK_CNT_W-1:0] gh_l_a = { {GHASH_BLOCK_CNT_W-A_CNT_W-B_CNT_W-1{1'b0}}, a_cnt_q, b_cnt_q , 1'b0};
-wire [GHASH_BLOCK_CNT_W-1:0] gh_l_c = { {GHASH_BLOCK_CNT_W-A_CNT_W-B_CNT_W-1{1'b0}}, c_cnt_q, b_cnt_q , 1'b0};
+wire [GHASH_BLOCK_CNT_W-1:0] gh_l_a = { {GHASH_BLOCK_CNT_W-A_CNT_W-B_CNT_W-1{1'b0}}, a_cnt_msb_q, a_cnt_lsb_q , 1'b0};
+wire [GHASH_BLOCK_CNT_W-1:0] gh_l_c = { {GHASH_BLOCK_CNT_W-A_CNT_W-B_CNT_W-1{1'b0}}, c_cnt_msb_q, c_cnt_lsb_q , 1'b0};
 assign gh_buff_l = {gh_l_a, gh_l_c};
 byteswap #(.W(W/8)) m_gh_l_byteswap(
 	.i(gh_buff_l), 
