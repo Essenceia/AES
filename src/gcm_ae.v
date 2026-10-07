@@ -238,6 +238,7 @@ Tracks what the current ghash module is hashing at the moment and what it should
  */ 
 reg              gh_buff_pending_q; // has data
 reg              gh_buff_c_pending_q; // has data
+reg              gh_buff_l_pending_q; // has data
 wire             gh_active; 
 wire [PHY_W-1:0] gh_res;
 wire             gh_l_start_next; 
@@ -250,19 +251,19 @@ always @(posedge clk)
 always @(posedge clk) begin
 	if (~rst_n) fsm_gh_q <= FSM_GHASH_IDLE; 
 	else case (fsm_gh_q) 
-		FSM_GHASH_IDLE:         fsm_gh_q <= sram_v_i & sram_h_i ? FSM_GHASH_LD_H: FSM_GHASH_IDLE; 
+		FSM_GHASH_IDLE:         fsm_gh_q <=  sram_v_i & sram_h_i ? FSM_GHASH_LD_H:   FSM_GHASH_IDLE; 
 		FSM_GHASH_LD_H:         fsm_gh_q <= ~sram_v_i & data_v_i ? FSM_GHASH_HASH_A: FSM_GHASH_LD_H; 
 		FSM_GHASH_HASH_A:       fsm_gh_q <= gh_buff_pending_q | data_v_i & ~data_enc_i? FSM_GHASH_HASH_A:
-						                    fsm_gh_c_next_q | data_v_i &  data_enc_i? FSM_GHASH_HASH_C :
+						                    fsm_gh_c_next_q   | data_v_i &  data_enc_i? FSM_GHASH_HASH_C :
                                             FSM_GHASH_HASH_L;
 		FSM_GHASH_HASH_C:       fsm_gh_q <= gh_buff_c_pending_q | (data_v_i & data_enc_i)? FSM_GHASH_HASH_C:
 											FSM_GHASH_HASH_L;
-		FSM_GHASH_HASH_L:       fsm_gh_q <= gh_res_v? FSM_GHASH_RES: FSM_GHASH_HASH_L;
+		FSM_GHASH_HASH_L:       fsm_gh_q <= ~gh_buff_l_pending_q? FSM_GHASH_RES:  FSM_GHASH_HASH_L;
 		FSM_GHASH_RES:          fsm_gh_q <= ~gh_res_v? FSM_GHASH_IDLE: FSM_GHASH_RES;  
 		default:                fsm_gh_q <= FSM_GHASH_IDLE;  
 	endcase
 end
-assign gh_l_start_next = (fsm_q == FSM_ICV_CALC) & ~gh_active; 
+assign gh_l_start_next = (fsm_gh_q == FSM_GHASH_HASH_L); 
 
 /* next data to hash, shift in data PHY_W bits at a time, 
 clean to 0s when we trigger a partial block hash */
@@ -280,7 +281,13 @@ reg  [W-1:0]  gh_buff_c_q;
 assign gh_start_next = ((b_cnt_q == B_CNT_MAX_MIN1) & data_v_i)
                      | ((fsm_gh_q == FSM_GHASH_HASH_A) & (fsm_q != FSM_A) & ~gh_active) // A dff hash pending
 					 | ((fsm_gh_q == FSM_GHASH_HASH_C) & (fsm_q != FSM_C) & ~gh_active)
-					 | (fsm_gh_q == FSM_GHASH_HASH_L) & ~gh_active;
+					 | (fsm_gh_q == FSM_GHASH_HASH_L) & ~gh_active; // prevent oscillation from transition
+
+wire debug_gh_start_next_cnt = ((b_cnt_q == B_CNT_MAX_MIN1) & data_v_i);
+wire debug_gh_start_next_a = ((fsm_gh_q == FSM_GHASH_HASH_A) & (fsm_q != FSM_A) & ~gh_active); // A dff hash pending
+wire debug_gh_start_next_c =  (fsm_gh_q == FSM_GHASH_HASH_C) & (fsm_q != FSM_C) & ~gh_active;
+wire debug_gh_start_next_l = (fsm_gh_q == FSM_GHASH_HASH_L) & ~gh_active; // prevent oscillation from transition
+
 always @(posedge clk) 
 	if (init_i) gh_start_q <= 1'b0;
 	else gh_start_q <= gh_start_next; 
@@ -299,33 +306,37 @@ byteswap #(.W(W/8)) m_gh_l_byteswap(
 	.o(gh_buff_l_swap));
 
 // A, L gh buffer
-assign gh_buff_rst = (fsm_q == FSM_A) & ~|b_cnt_q // A block start, even if A is guarantied to be at least 16B on init, this allows us to do zero append 
-                   | gh_l_start_next;  // L start next 
-
 wire [W-1:0] gh_buff_rst_next_data; // iverilog bugs
 wire [W-1:0] gh_buff_next;  
 assign gh_buff_rst_next[W-1-:PHY_W]  = data_i;
 assign gh_buff_rst_next[W-PHY_W-1:0] = {W-PHY_W{1'b0}};
-assign gh_buff_rst_next = gh_l_start_next? gh_buff_l_swap : gh_buff_rst_next_data;
+assign gh_buff_rst_next = (fsm_gh_q == FSM_GHASH_HASH_A) ? gh_buff_rst_next_data: gh_buff_l_swap; 
 
 assign gh_buff_next[W-1-:PHY_W]  = data_i; 
 assign gh_buff_next[W-PHY_W-1:0] = gh_buff_q[W-1:PHY_W];
 
+assign gh_buff_rst = (fsm_q == FSM_A) & ~|b_cnt_q // A block start, even if A is guarantied to be at least 16B on init, this allows us to do zero append 
+                   | gh_l_start_next;  // L start next 
+
 always @(posedge clk) 
 	if (gh_buff_rst)  gh_buff_q <= gh_buff_rst_next; // A data guaranties 4 cycles minumum so it will be set for A
 	else if (data_v_i & ~data_enc_i) gh_buff_q <= gh_buff_next; // do not shift on L 
+
 always @(posedge clk) 
 	if (init_i | gh_start_next) gh_buff_pending_q <= 1'b0; 
 	else gh_buff_pending_q   <= gh_buff_pending_q | (data_v_i & ~data_enc_i); 
+
+always @(posedge clk) 
+	if (init_i) 
+		gh_buff_l_pending_q <= 1'b1; 
+	else if ((fsm_gh_q == FSM_GHASH_HASH_L) & ~(gh_buff_pending_q | gh_buff_c_pending_q) & gh_start_next) 
+		gh_buff_l_pending_q <= 1'b0; 
 
 // C gh buffer
 assign gh_buff_c_rst = (fsm_q == FSM_C) & ~|b_cnt_q; 
 always @(posedge clk) 
 	if (gh_buff_c_rst) gh_buff_c_q <= {data_xor_aes,{W-PHY_W{1'b0}}};
 	else if (data_v_i & data_enc_i) gh_buff_c_q <= {data_xor_aes, gh_buff_c_q[W-1:PHY_W]};
-always @(posedge clk) 
-	if (init_i | gh_start_next) gh_buff_c_pending_q <= 1'b0; 
-	else gh_buff_c_pending_q <= gh_buff_c_pending_q | (data_v_i & data_enc_i); 
 
 wire [W-1:0] gh_data; 
 wire [W-1:0] gh_data_swap; 
