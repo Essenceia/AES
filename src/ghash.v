@@ -28,7 +28,9 @@ module ghash #(
 	input wire              res_shift_i, 
 	output wire             res_v_o,
 	output wire             res_early_v_o,
-	output wire [PHY_W-1:0] res_o
+	output wire [PHY_W-1:0] res_o,
+
+	output wire             active_o
 );
 localparam STEPS_CYCLE_N = 4; 
 
@@ -41,8 +43,8 @@ localparam [CNT_W-1:0] CNT_MAX_MIN2 = CNT_MAX - 2;
 // localparam [W-1:0] R = {8'b11100001, {120{1'b0}}};
 
 // fsm 
-localparam IDLE =  1'd0;
-localparam BLOCK = 1'd1;
+localparam FSM_IDLE =  1'd0;
+localparam FSM_BLOCK = 1'd1;
 reg              fsm_q;
 reg  [CNT_W-1:0] cnt_q;
 wire [CNT_W-1:0] cnt_next;
@@ -50,16 +52,16 @@ wire             block_finished;
 
 always @(posedge clk) begin
 	if (~rst_n ) begin
-		fsm_q <= IDLE; 
+		fsm_q <= FSM_IDLE; 
 		cnt_q <= {CNT_W{1'b0}};
 	end else begin
 		case(fsm_q)
-			IDLE: begin
-				fsm_q <= data_v_i ? BLOCK : IDLE; 
+			FSM_IDLE: begin
+				fsm_q <= data_v_i ? FSM_BLOCK : FSM_IDLE; 
 				cnt_q <= {CNT_W{1'b0}};	
 			end
-			BLOCK: begin
-				fsm_q <= block_finished ? (data_v_i ? BLOCK : IDLE): BLOCK; 
+			FSM_BLOCK: begin
+				fsm_q <= block_finished ? (data_v_i ? FSM_BLOCK : FSM_IDLE): FSM_BLOCK; 
 				cnt_q <= data_v_i ? {CNT_W{1'b0}}: cnt_next; 
 			end
 		endcase
@@ -86,7 +88,7 @@ wire xi[STEPS_CYCLE_N:0];
  
 always @(posedge clk) 
 	if (data_v_i) x_q <= data_i ^ z_q; // { x0, x1, x2 ... x127}
-	else x_q <= {x_q[W-STEPS_CYCLE_N-1:0], {STEPS_CYCLE_N{1'bx}} }; // implied fsm_q == BLOCK 
+	else x_q <= {x_q[W-STEPS_CYCLE_N-1:0], {STEPS_CYCLE_N{1'bx}} }; // implied fsm_q == FSM_BLOCK 
 	
 reg [W-1:0] v0_q;
 always @(posedge clk) 
@@ -102,8 +104,8 @@ wire [W-1:0] z_shift_next;
 assign z_shift_next = { z_q[W-PHY_W-1:0], {PHY_W{1'bx}} };
 always @(posedge clk)
 	if (h_v_i | data_v_i | ~rst_n)z_q <= {W{1'b0}};
-	else if (fsm_q == BLOCK)      z_q <= zi_inc[STEPS_CYCLE_N];
-	else if (res_shift_i)         z_q <= z_shift_next; 
+	else if (fsm_q == FSM_BLOCK) z_q <= zi_inc[STEPS_CYCLE_N];
+	else if (res_shift_i)        z_q <= z_shift_next; 
 
 always @(posedge clk) 
 	if (data_v_i) v_q <= v0_q;
@@ -129,8 +131,9 @@ generate
 endgenerate
 
 // output 
-assign res_v_o = res_v_q; 
+assign res_v_o       = res_v_q; 
 assign res_early_v_o = res_early_v_q; 
-assign res_o   = z_q[W-1-:PHY_W];
+assign res_o         = z_q[W-1-:PHY_W];
 
+assign active_o = (fsm_q == FSM_BLOCK); 
 endmodule

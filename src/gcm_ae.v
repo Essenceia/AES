@@ -45,12 +45,12 @@ localparam FSM_ICV_CALC = 3'd3;
 localparam FSM_ICV      = 3'd4; 
 reg [2:0] fsm_q; 
 
-localparam FSM_GHASH_IDLE    = 3'd0; 
-localparam FSM_GHASH_LD_H    = 3'd1; 
-localparam FSM_GHASH_HASH_A  = 3'd2; // authentification data
-localparam FSM_GHASH_HASH_C  = 3'd3; // ciphered data
-localparam FSM_GHASH_HASH_L  = 3'd4; // lengths
-localparam FSM_GHASH_RES     = 3'd5;
+localparam FSM_GHASH_IDLE          = 3'd0; 
+localparam FSM_GHASH_LD_H          = 3'd1; 
+localparam FSM_GHASH_HASH_A        = 3'd2; // authentification data
+localparam FSM_GHASH_HASH_C        = 3'd3; // ciphered data
+localparam FSM_GHASH_HASH_L        = 3'd4; // lengths
+localparam FSM_GHASH_RES           = 3'd5;
 reg [2:0] fsm_gh_q;
 
 // key must be fully stored outside of aes as is needs to be refresed before 
@@ -84,9 +84,11 @@ reg  [B_CNT_W-1:0] b_cnt_q;
 wire [B_CNT_W-1:0] b_cnt_next; 
 reg  [B_CNT_W-1:0] tag_cnt_q; 
 wire b_cnt_rst; 
+wire b_cnt_end; // block end 
 
 assign b_cnt_rst  = init_i | ((fsm_q == FSM_A) & data_v_i & data_enc_i); // rst block cnt when switching from A->C
 assign b_cnt_next = b_cnt_q + {{B_CNT_W-1{1'b0}}, 1'b1};
+assign b_cnt_end = (b_cnt_q == B_CNT_MAX_MIN1); 
 
 always @(posedge clk) 
 	if (b_cnt_rst) b_cnt_q <= {B_CNT_W{1'b0}};
@@ -233,30 +235,47 @@ aes_compact m_aes(
 /* GHASH fsm
 Tracks what the current ghash module is hashing at the moment and what it should hash next.
  */ 
-
+wire gh_active; 
 wire [PHY_W-1:0] gh_res;
+wire             gh_l_start_next; 
+reg              fsm_gh_c_next_q; 
 
+always @(posedge clk) 
+	if (init_i | (fsm_gh_q == FSM_GHASH_HASH_C)) fsm_gh_c_next_q <= 1'b0; 
+	else fsm_gh_c_next_q <= fsm_gh_c_next_q | (data_v_i & data_enc_i);
+ 
 always @(posedge clk) begin
 	if (~rst_n) fsm_gh_q <= FSM_GHASH_IDLE; 
 	else case (fsm_gh_q) 
-		FSM_GHASH_IDLE:   fsm_gh_q <= sram_v_i & sram_h_i ? FSM_GHASH_LD_H: FSM_GHASH_IDLE; 
-		FSM_GHASH_LD_H:   fsm_gh_q <= ~sram_v_i ? FSM_GHASH_HASH_A: FSM_GHASH_LD_H; 
-		FSM_GHASH_HASH_A: fsm_gh_q <= data_v_i & data_enc_i? FSM_GHASH_HASH_C :
-                                      data_v_i & data_last_i ? FSM_GHASH_HASH_L: FSM_GHASH_HASH_A;  
-		FSM_GHASH_HASH_C: fsm_gh_q <= payload_finished & gh_res_v ? FSM_GHASH_HASH_L: FSM_GHASH_HASH_C;
-		FSM_GHASH_HASH_L: fsm_gh_q <= gh_res_v? FSM_GHASH_RES: FSM_GHASH_HASH_L;
-		FSM_GHASH_RES:    fsm_gh_q <= ~gh_res_v? FSM_GHASH_IDLE: FSM_GHASH_RES;  
-		default:          fsm_gh_q <= FSM_GHASH_IDLE;  
+		FSM_GHASH_IDLE:         fsm_gh_q <= sram_v_i & sram_h_i ? FSM_GHASH_LD_H: FSM_GHASH_IDLE; 
+		FSM_GHASH_LD_H:         fsm_gh_q <= ~sram_v_i & data_v_i ? FSM_GHASH_HASH_A: FSM_GHASH_LD_H; 
+		FSM_GHASH_HASH_A:       fsm_gh_q <= gh_buff_pending_q | data_v_i & ~data_enc_i? FSM_GHASH_HASH_A:
+						                    fsm_gh_c_next_q | data_v_i &  data_enc_i? FSM_GHASH_HASH_C :
+                                            data_v_i &  data_last_i? FSM_GHASH_HASH_L;
+		FSM_GHASH_HASH_C:       fsm_gh_q <= gh_buff_pending_c_q | (data_v_i & data_enc_i)? FSM_GHASH_HASH_C:
+											FSM_GHASH_HASH_L;
+		FSM_GHASH_HASH_L:       fsm_gh_q <= gh_res_v? FSM_GHASH_RES: FSM_GHASH_HASH_L;
+		FSM_GHASH_RES:          fsm_gh_q <= ~gh_res_v? FSM_GHASH_IDLE: FSM_GHASH_RES;  
+		default:                fsm_gh_q <= FSM_GHASH_IDLE;  
 	endcase
 end
+assign gh_l_start_next = (fsm_q == FSM_ICV_CALC) & ~gh_active; 
 
 /* next data to hash, shift in data PHY_W bits at a time, 
 clean to 0s when we trigger a partial block hash */
 wire         gh_start_early; 
 wire         gh_start_next;  // start ghash on full block 
-reg          gh_start_q; 
+reg          gh_start_q;
+ 
+// A, L buffers
+wire         gh_buff_rst; 
 reg  [W-1:0] gh_buff_q;  
-wire [W-1:0] gh_buff_rst; 
+wire [W-1:0] gh_buff_rst_next; 
+reg          gh_buff_pending_q; // has data
+// C buffers 
+wire         gh_buff_c_en; 
+reg [W-1:0]  gh_buff_c_q; 
+reg          gh_buff_c_pending_q; // has data
 
 assign gh_start_early = (fsm_gh_q == FSM_GHASH_HASH_A & (data_v_i & data_enc_i)) // A->C
 					  | payload_finished; // A->L, C->L
@@ -267,7 +286,7 @@ always @(posedge clk)
 	if (init_i) gh_start_q <= 1'b0;
 	else gh_start_q <= gh_start_next; 
  
-// guarantied to at least have 16B of A, so we do not need to clear on init
+// L
 localparam GHASH_BLOCK_CNT_W = 64;
 wire [PHY_W-1:0] res_next; 
 wire [W-1:0]     gh_buff_l;
@@ -280,22 +299,41 @@ byteswap #(.W(W/8)) m_gh_l_byteswap(
 	.i(gh_buff_l), 
 	.o(gh_buff_l_swap));
 
-assign gh_buff_rst = payload_finished ? gh_buff_l_swap : {res_next, {W-PHY_W{1'b0}}};
-always @(posedge clk) 
-	if (gh_start_early) gh_buff_q <= gh_buff_rst; 
-	else if (data_v_i) 	gh_buff_q <= { res_next , gh_buff_q[W-1:PHY_W]}; // do not shift on L 
+// A, L gh buffer
+assign gh_buff_rst = (fsm_q == FSM_A) & ~|b_cnt_q // A block start, even if A is guarantied to be at least 16B on init, this allows us to do zero append 
+                   | gh_l_start_next;  // L start next 
 
-wire [W-1:0] gh_buff_swap; 
+assign gh_buff_rst_next = gh_l_start_next? gh_buff_l_swap : {data_i, {W-PHY_W{1'b0}}};
+always @(posedge clk) 
+	if (gh_buff_rst)  gh_buff_v_q <= 1'b0; // A data guaranties 4 cycles minumum so it will be set for A
+	else if (data_v_i & ~data_enc_i) gh_buff_q   <= { data_i , gh_buff_q[W-1:PHY_W]}; // do not shift on L 
+always @(posedge clk) 
+	if (init_i | gh_start_next) gh_buff_pending_q <= 1'b0; 
+	else gh_buff_pending_q <= gh_buff_pending_q | (data_v_i & ~data_enc_i); 
+
+// C gh buffer
+assign gh_buff_c_rst = (fsm_q == FSM_C) & ~|b_cnt_q; 
+always @(posedge clk) 
+	if (gh_buff_c_rst) gh_buff_c_q <= {data_xor_aes,{W-PHY_W-1{1'b0}}};
+	else (data_i & data_enc_i) gh_buff_c_q <= {data_xor_aes, gh_buff_c_q[W-1:PHY_W]};
+always @(posedge clk) 
+	if (init_i | gh_start_next) gh_buff_c_pending_q <= 1'b0; 
+	else gh_buff_c_pending_q <= gh_buff_c_pending_q | (data_v_i & data_enc_i); 
+
+wire [W-1:0] gh_data; 
+wire [W-1:0] gh_data_swap; 
+assign gh_data = (fsm_gh_q == FSM_GHASH_HASH_C) ? gh_buff_c_q : gh_buff_q;
+
 byteswap #(.W(W/8)) m_gh_byteswap(
-	.i(gh_buff_q), 
-	.o(gh_buff_swap));
+	.i(gh_data), 
+	.o(gh_data_swap));
 
 ghash #(.SRAM_W(SRAM_W), .PHY_W(PHY_W)) m_ghash(
 	.clk  (clk), 
 	.rst_n(rst_n), 
 
 	.data_v_i(gh_start_q), 
-	.data_i  (gh_buff_swap),
+	.data_i  (gh_data_swap),
  
 	.h_v_i(sram_v_i & sram_h_i), 
 	.h_i  (sram_i), 
@@ -303,7 +341,9 @@ ghash #(.SRAM_W(SRAM_W), .PHY_W(PHY_W)) m_ghash(
 	.res_shift_i   (tag_v),
 	.res_early_v_o (gh_res_early_v),
 	.res_v_o       (gh_res_v),
-	.res_o         (gh_res)
+	.res_o         (gh_res),
+
+	.active_o      (gh_active) 
 	);
 
 
