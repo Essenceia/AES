@@ -257,7 +257,9 @@ wire [PHY_W-1:0] res_next;
 wire [W-1:0]     gh_buff_l;
 wire [W-1:0]     gh_buff_l_swap;
 
-assign gh_buff_l = {{GHASH_BLOCK_CNT_W-A_CNT_W{1'b0}}, a_cnt_q, {GHASH_BLOCK_CNT_W-C_CNT_W{1'b0}}, c_cnt_q};
+wire [GHASH_BLOCK_CNT_W-1:0] gh_l_a = { {GHASH_BLOCK_CNT_W-A_CNT_W-B_CNT_W-1{1'b0}}, a_cnt_q, b_cnt_q , 1'b0};
+wire [GHASH_BLOCK_CNT_W-1:0] gh_l_c = { {GHASH_BLOCK_CNT_W-A_CNT_W-B_CNT_W-1{1'b0}}, c_cnt_q, b_cnt_q , 1'b0};
+assign gh_buff_l = {gh_l_a, gh_l_c};
 byteswap #(.W(W/8)) m_gh_l_byteswap(
 	.i(gh_buff_l), 
 	.o(gh_buff_l_swap));
