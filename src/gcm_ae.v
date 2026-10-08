@@ -146,7 +146,7 @@ always @(posedge clk) begin
 		FSM_A:        fsm_q <= (data_v_i & data_enc_i)? FSM_C : 
 					           pkt_end ? FSM_ICV_CALC: FSM_A; 
 		FSM_C:        fsm_q <= pkt_end ? FSM_ICV_CALC: FSM_C; 
-		FSM_ICV_CALC: fsm_q <= gh_res_v & (fsm_gh_q == FSM_GHASH_HASH_L) ? FSM_ICV: FSM_ICV_CALC; 
+		FSM_ICV_CALC: fsm_q <= gh_res_v & (fsm_gh_q == FSM_GHASH_RES) ? FSM_ICV: FSM_ICV_CALC; 
 		FSM_ICV:      fsm_q <= tag_cnt_q == B_CNT_MAX_MIN1 ? FSM_IDLE: FSM_ICV;
 		default:      fsm_q <= FSM_IDLE; 
 	endcase
