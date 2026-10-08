@@ -48,9 +48,11 @@ reg [2:0] fsm_q;
 localparam FSM_GHASH_IDLE          = 3'd0; 
 localparam FSM_GHASH_LD_H          = 3'd1; 
 localparam FSM_GHASH_HASH_A        = 3'd2; // authentification data
-localparam FSM_GHASH_HASH_C        = 3'd3; // ciphered data
-localparam FSM_GHASH_HASH_L        = 3'd4; // lengths
-localparam FSM_GHASH_RES           = 3'd5;
+localparam FSM_GHASH_HASH_A_PAD    = 3'd3; // authentification data
+localparam FSM_GHASH_HASH_C        = 3'd4; // ciphered data
+localparam FSM_GHASH_HASH_C_PAD    = 3'd5; // ciphered data
+localparam FSM_GHASH_HASH_L        = 3'd6; // lengths
+localparam FSM_GHASH_RES           = 3'd7;
 reg [2:0] fsm_gh_q;
 
 
@@ -133,17 +135,17 @@ always @(posedge clk)
 
 // main fsm 
 
-wire payload_finished;  // last data seen 
+wire pkt_end;  // last data seen 
 wire tag_v; 
 
-assign payload_finished = data_v_i & data_last_i; 
+assign pkt_end = data_v_i & data_last_i; 
 always @(posedge clk) begin
 	if (~rst_n) fsm_q <= FSM_IDLE; 
 	else case (fsm_q)
 		FSM_IDLE:     fsm_q <= init_i ? FSM_A: FSM_IDLE; 
 		FSM_A:        fsm_q <= (data_v_i & data_enc_i)? FSM_C : 
-					           payload_finished ? FSM_ICV_CALC: FSM_A; 
-		FSM_C:        fsm_q <= payload_finished ? FSM_ICV_CALC: FSM_C; 
+					           pkt_end ? FSM_ICV_CALC: FSM_A; 
+		FSM_C:        fsm_q <= pkt_end ? FSM_ICV_CALC: FSM_C; 
 		FSM_ICV_CALC: fsm_q <= gh_res_v & (fsm_gh_q == FSM_GHASH_HASH_L) ? FSM_ICV: FSM_ICV_CALC; 
 		FSM_ICV:      fsm_q <= tag_cnt_q == B_CNT_MAX_MIN1 ? FSM_IDLE: FSM_ICV;
 		default:      fsm_q <= FSM_IDLE; 
@@ -186,10 +188,10 @@ always @(posedge clk) begin
 	endcase
 end
 
-reg aes_tag_v_q; // indicated whether we are calculating the aes for the tag or the plain text 
+reg pkt_end_q; // indicated whether we are calculating the aes for the tag or the plain text 
 always @(posedge clk) 
-	if (~rst_n | init_i) aes_tag_v_q <= 1'b0; 
-	else aes_tag_v_q <= aes_tag_v_q | payload_finished; 
+	if (~rst_n | init_i) pkt_end_q <= 1'b0; 
+	else pkt_end_q <= pkt_end_q | pkt_end; 
 
 
 // previous aes hash
@@ -236,9 +238,6 @@ aes_compact m_aes(
 /* GHASH fsm
 Tracks what the current ghash module is hashing at the moment and what it should hash next.
  */ 
-reg              gh_buff_pending_q; // has data
-reg              gh_buff_c_pending_q; // has data
-reg              gh_buff_l_pending_q; // has data
 wire             gh_active; 
 wire [PHY_W-1:0] gh_res;
 wire             gh_l_start_next; 
@@ -251,16 +250,19 @@ always @(posedge clk)
 always @(posedge clk) begin
 	if (~rst_n) fsm_gh_q <= FSM_GHASH_IDLE; 
 	else case (fsm_gh_q) 
-		FSM_GHASH_IDLE:         fsm_gh_q <=  sram_v_i & sram_h_i ? FSM_GHASH_LD_H:   FSM_GHASH_IDLE; 
-		FSM_GHASH_LD_H:         fsm_gh_q <= ~sram_v_i & data_v_i ? FSM_GHASH_HASH_A: FSM_GHASH_LD_H; 
-		FSM_GHASH_HASH_A:       fsm_gh_q <= gh_buff_pending_q | data_v_i & ~data_enc_i? FSM_GHASH_HASH_A:
-						                    fsm_gh_c_next_q   | data_v_i &  data_enc_i? FSM_GHASH_HASH_C :
-                                            FSM_GHASH_HASH_L;
-		FSM_GHASH_HASH_C:       fsm_gh_q <= gh_buff_c_pending_q | (data_v_i & data_enc_i)? FSM_GHASH_HASH_C:
-											FSM_GHASH_HASH_L;
-		FSM_GHASH_HASH_L:       fsm_gh_q <= ~gh_buff_l_pending_q? FSM_GHASH_RES:  FSM_GHASH_HASH_L;
-		FSM_GHASH_RES:          fsm_gh_q <= ~gh_res_v? FSM_GHASH_IDLE: FSM_GHASH_RES;  
-		default:                fsm_gh_q <= FSM_GHASH_IDLE;  
+		FSM_GHASH_IDLE:       fsm_gh_q <=  sram_v_i & sram_h_i ? FSM_GHASH_LD_H:   FSM_GHASH_IDLE; 
+		FSM_GHASH_LD_H:       fsm_gh_q <= ~sram_v_i & data_v_i ? FSM_GHASH_HASH_A: FSM_GHASH_LD_H; 
+		FSM_GHASH_HASH_A:     fsm_gh_q <= ~(data_enc_i | data_last_i) ? FSM_GHASH_HASH_A:
+							  			   (b_cnt_q == B_CNT_MAX_MIN1) ? (data_enc_i ? FSM_GHASH_HASH_C : FSM_GHASH_HASH_L):// transition, is block on boundary else go to pad
+						                   FSM_GHASH_HASH_A_PAD;
+		FSM_GHASH_HASH_A_PAD: fsm_gh_q <= ~gh_active ? (fsm_gh_c_next_q ? FSM_GHASH_HASH_C: FSM_GHASH_HASH_L) :
+							  		       FSM_GHASH_HASH_A_PAD; 
+		FSM_GHASH_HASH_C:     fsm_gh_q <= (data_last_i | pkt_end_q)? ((b_cnt_q == B_CNT_MAX_MIN1) ? FSM_GHASH_HASH_L : FSM_GHASH_HASH_C_PAD) :
+							  			   FSM_GHASH_HASH_C;
+		FSM_GHASH_HASH_C_PAD: fsm_gh_q <= ~gh_active? FSM_GHASH_HASH_L: FSM_GHASH_HASH_C_PAD; 
+		FSM_GHASH_HASH_L:     fsm_gh_q <= ~gh_active? FSM_GHASH_RES:  FSM_GHASH_HASH_L;
+		FSM_GHASH_RES:        fsm_gh_q <= ~gh_res_v? FSM_GHASH_IDLE: FSM_GHASH_RES;  
+		default:              fsm_gh_q <=  FSM_GHASH_IDLE;  
 	endcase
 end
 assign gh_l_start_next = (fsm_gh_q == FSM_GHASH_HASH_L); 
@@ -308,8 +310,8 @@ byteswap #(.W(W/8)) m_gh_l_byteswap(
 // A, L gh buffer
 wire [W-1:0] gh_buff_rst_next_data; // iverilog bugs
 wire [W-1:0] gh_buff_next;  
-assign gh_buff_rst_next[W-1-:PHY_W]  = data_i;
-assign gh_buff_rst_next[W-PHY_W-1:0] = {W-PHY_W{1'b0}};
+assign gh_buff_rst_next_data[W-1-:PHY_W]  = data_i;
+assign gh_buff_rst_next_data[W-PHY_W-1:0] = {W-PHY_W{1'b0}};
 assign gh_buff_rst_next = (fsm_gh_q == FSM_GHASH_HASH_A) ? gh_buff_rst_next_data: gh_buff_l_swap; 
 
 assign gh_buff_next[W-1-:PHY_W]  = data_i; 
@@ -321,16 +323,6 @@ assign gh_buff_rst = (fsm_q == FSM_A) & ~|b_cnt_q // A block start, even if A is
 always @(posedge clk) 
 	if (gh_buff_rst)  gh_buff_q <= gh_buff_rst_next; // A data guaranties 4 cycles minumum so it will be set for A
 	else if (data_v_i & ~data_enc_i) gh_buff_q <= gh_buff_next; // do not shift on L 
-
-always @(posedge clk) 
-	if (init_i | gh_start_next) gh_buff_pending_q <= 1'b0; 
-	else gh_buff_pending_q   <= gh_buff_pending_q | (data_v_i & ~data_enc_i); 
-
-always @(posedge clk) 
-	if (init_i) 
-		gh_buff_l_pending_q <= 1'b1; 
-	else if ((fsm_gh_q == FSM_GHASH_HASH_L) & ~(gh_buff_pending_q | gh_buff_c_pending_q) & gh_start_next) 
-		gh_buff_l_pending_q <= 1'b0; 
 
 // C gh buffer
 assign gh_buff_c_rst = (fsm_q == FSM_C) & ~|b_cnt_q; 
