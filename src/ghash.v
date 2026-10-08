@@ -104,8 +104,8 @@ wire [W-1:0] z_shift_next;
 assign z_shift_next = { z_q[W-PHY_W-1:0], {PHY_W{1'bx}} };
 always @(posedge clk)
 	if (h_v_i | data_v_i | ~rst_n)z_q <= {W{1'b0}};
-	else if (fsm_q == FSM_BLOCK) z_q <= zi_inc[STEPS_CYCLE_N];
-	else if (res_shift_i)        z_q <= z_shift_next; 
+	else if (fsm_q == FSM_BLOCK)  z_q <= zi_inc[STEPS_CYCLE_N];
+	else if (res_shift_i)         z_q <= z_shift_next;
 
 always @(posedge clk) 
 	if (data_v_i) v_q <= v0_q;

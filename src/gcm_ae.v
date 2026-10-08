@@ -151,7 +151,7 @@ always @(posedge clk) begin
 		default:      fsm_q <= FSM_IDLE; 
 	endcase
 end
-assign tag_v = (fsm_q == FSM_ICV) | (fsm_q == FSM_ICV_CALC) & gh_res_v; 
+assign tag_v = (fsm_q == FSM_ICV) | (fsm_gh_q == FSM_GHASH_RES & gh_res_v); 
 /* 
 Calculate the next aes block hash one block ahead such that we can 
 apply the hash to the incoming data as it streams in and directly 
