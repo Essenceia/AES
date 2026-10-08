@@ -55,8 +55,6 @@ module aes_compact #(
 	input  wire clk,
 	input  wire rst_n,
 
-	input  wire             halt_i, // nuke onging calculations 
-	
 	input  wire             start_i, 
 	input  wire             data_v_i, // input valid
 	input  wire [TXT_W-1:0] data_i,   // message to decode
@@ -83,6 +81,9 @@ reg [COL_IDX_W-1:0]  col_cnt_q;
 reg [KCOL_IDX_W-1:0] kcol_cnt_q;
 wire                 rnd_inc; 
 wire                 rnd_last_next; 
+wire                 halt; 
+
+assign halt = key_v_i; 
 
 always @(posedge clk) begin
 	if (~rst_n) begin
@@ -95,15 +96,15 @@ always @(posedge clk) begin
 			rnd_q <= {RND_CNT_W{1'b0}};
 		end
 		RND_BUBBLE: begin
-			fsm_q <= halt_i ? RND_FIRST: RND_INNER; 
+			fsm_q <= halt ? RND_FIRST: RND_INNER; 
 			rnd_q <= {{RND_CNT_W-1{1'b0}}, 1'b1}; 
 		end
 		RND_INNER: begin
-			fsm_q <= halt_i ? RND_FIRST : rnd_last_next ? RND_LAST: RND_INNER;
+			fsm_q <= halt ? RND_FIRST : rnd_last_next ? RND_LAST: RND_INNER;
 			rnd_q <= rnd_q + {{RND_CNT_W-1{1'b0}}, rnd_inc}; 
 		end
 		RND_LAST: begin
-			fsm_q <= halt_i? RND_FIRST : rnd_inc ? RND_FIRST: RND_LAST; 
+			fsm_q <= halt? RND_FIRST : rnd_inc ? RND_FIRST: RND_LAST; 
 			rnd_q <= rnd_inc ? {RND_CNT_W{1'b0}}: rnd_q;
 		end
 		endcase

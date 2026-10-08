@@ -224,8 +224,6 @@ aes_compact m_aes(
 	.clk(clk), 
 	.rst_n(rst_n), 
 
-	.halt_i  (fsm_aes_q == FSM_AES_LD_KEY), 
-	
 	.start_i (fsm_aes_q == FSM_AES_LD_DATA), 
 	.data_v_i(fsm_aes_q == FSM_AES_LD_DATA),
 	.data_i  (iv), 

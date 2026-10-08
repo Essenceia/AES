@@ -28,7 +28,6 @@ def set_all_enc(dut, \
 
 def set_enc_invalid_data(dut): 
 	dut.enc_start.value = 0
-	dut.enc_halt.value = 0
 	set_all_enc(dut, \
 		0,"X"*TXT_W, \
 		0,"X"*KEY_W)
@@ -76,14 +75,12 @@ async def enc128(dut,
 	if halt:
 		await halt_enc(dut)
 	else:
-		check_res(dut, data, key) 
+		await check_res(dut, data, key) 
 
 async def halt_enc(dut): 
 	halt_cycle = random.randrange(0, 46)
+	cocotb.log.info(f"halt cycle {halt_cycle}") 
 	await ClockCycles(dut.clk, halt_cycle) 
-	dut.enc_halt.value = 1
-	await ClockCycles(dut.clk, 1) 
-	dut.enc_halt.value = 0 
 	
 async def check_res(dut, data:bytearray, key:bytearray):	
 	timeout = 0 

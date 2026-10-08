@@ -27,8 +27,6 @@ wire rst_n;
 localparam KEY_W = `KEY_W; 
 localparam TXT_W = 128; 
 
-wire             enc_halt;
- 
 wire             enc_start; 
 wire             enc_data_v; 
 wire [TXT_W-1:0] enc_data;
@@ -43,8 +41,6 @@ aes_compact #(.KEY_W(KEY_W)) m_enc(
 	.clk      (clk), 
 	.rst_n    (rst_n), 
 	
-	.halt_i   (enc_halt),
-
 	.start_i  (enc_start),
 	.data_v_i (enc_data_v), 
 	.data_i   (enc_data), 
