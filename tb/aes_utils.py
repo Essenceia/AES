@@ -28,13 +28,15 @@ def set_all_enc(dut, \
 
 def set_enc_invalid_data(dut): 
 	dut.enc_start.value = 0
+	dut.enc_halt.value = 0
 	set_all_enc(dut, \
 		0,"X"*TXT_W, \
 		0,"X"*KEY_W)
 
 async def enc128(dut, 
-	data: bytearray, \
+	data: bytearray, 
 	key:  bytearray, 
+	halt: bool = False, 
 	KEY_W: int = 128):
 	
 	cocotb.log.info(f"key 0x{key.hex()} data 0x{data.hex()}")
@@ -71,11 +73,24 @@ async def enc128(dut,
 			dut.enc_start.value = 1
 		await ClockCycles(dut.clk, 1) 
 	set_enc_invalid_data(dut)
+	if halt:
+		await halt_enc(dut)
+	else:
+		check_res(dut, data, key) 
+
+async def halt_enc(dut): 
+	halt_cycle = random.randrange(0, 46)
+	await ClockCycles(dut.clk, halt_cycle) 
+	dut.enc_halt.value = 1
+	await ClockCycles(dut.clk, 1) 
+	dut.enc_halt.value = 0 
 	
+async def check_res(dut, data:bytearray, key:bytearray):	
 	timeout = 0 
 	res = b''
 	max_timeout = AES_CYCLES - 5 # max timeout time is 64 cycles to get data and we need at least 5 cycle to send data
 	while (timeout < max_timeout): 
+		
 		if (dut.enc_res_v.value == 1):
 			res = dut.enc_res.value	
 			break

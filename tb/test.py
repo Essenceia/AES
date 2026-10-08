@@ -76,6 +76,27 @@ async def aes_random_test(dut):
 		await aes_utils.enc128(dut, ptxt, key)
 
 @cocotb.test()
+async def aes_halt_simple_test(dut): 
+	set_random_seed()
+	await rst(dut)
+	for _ in range(2): # test state is correctly wipped between each run 
+		ptxt = b'\x32\x43\xf6\xa8\x88\x5a\x30\x8d\x31\x31\x98\xa2\xe0\x37\x07\x34'
+		key  = b'\x2b\x7e\x15\x16\x28\xae\xd2\xa6\xab\xf7\x15\x88\x09\xcf\x4f\x3c'
+		await aes_utils.enc128(dut, ptxt, key, halt=True)
+		await aes_utils.enc128(dut, ptxt, key, halt=False)
+
+@cocotb.test()
+async def aes_halt_random_test(dut):
+	set_random_seed() # for reporducibility (so that I have lots of children to spoil at Christmas)
+	await rst(dut)
+	for _ in range(TEST_ITER):
+		ptxt = random.randbytes(TXT_BYTES_W)
+		key = random.randbytes(TXT_BYTES_W)
+		halt = True if random.randrange(0, 100) < 50 else False
+		await aes_utils.enc128(dut, ptxt, key, halt)
+
+	
+@cocotb.test()
 async def ghash_single_block_test(dut): 
 	set_random_seed()
 	await rst(dut)
