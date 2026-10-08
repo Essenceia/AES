@@ -242,6 +242,9 @@ wire             gh_active;
 wire [PHY_W-1:0] gh_res;
 wire             gh_l_start_next; 
 reg              fsm_gh_c_next_q; 
+wire             gh_buff_a_shift_done; 
+wire             gh_buff_c_shift_done; 
+
 
 always @(posedge clk) 
 	if (init_i | (fsm_gh_q == FSM_GHASH_HASH_C)) fsm_gh_c_next_q <= 1'b0; 
@@ -255,11 +258,11 @@ always @(posedge clk) begin
 		FSM_GHASH_HASH_A:     fsm_gh_q <= ~(data_enc_i | data_last_i) ? FSM_GHASH_HASH_A:
 							  			   (b_cnt_q == B_CNT_MAX_MIN1) ? (data_enc_i ? FSM_GHASH_HASH_C : FSM_GHASH_HASH_L):// transition, is block on boundary else go to pad
 						                   FSM_GHASH_HASH_A_PAD;
-		FSM_GHASH_HASH_A_PAD: fsm_gh_q <= ~gh_active ? (fsm_gh_c_next_q ? FSM_GHASH_HASH_C: FSM_GHASH_HASH_L) :
+		FSM_GHASH_HASH_A_PAD: fsm_gh_q <= ~gh_active & gh_buff_a_shift_done ? (fsm_gh_c_next_q ? FSM_GHASH_HASH_C: FSM_GHASH_HASH_L) :
 							  		       FSM_GHASH_HASH_A_PAD; 
 		FSM_GHASH_HASH_C:     fsm_gh_q <= (data_last_i | pkt_end_q)? ((b_cnt_q == B_CNT_MAX_MIN1) ? FSM_GHASH_HASH_L : FSM_GHASH_HASH_C_PAD) :
 							  			   FSM_GHASH_HASH_C;
-		FSM_GHASH_HASH_C_PAD: fsm_gh_q <= ~gh_active? FSM_GHASH_HASH_L: FSM_GHASH_HASH_C_PAD; 
+		FSM_GHASH_HASH_C_PAD: fsm_gh_q <= ~gh_active ? FSM_GHASH_HASH_L: FSM_GHASH_HASH_C_PAD; 
 		FSM_GHASH_HASH_L:     fsm_gh_q <= ~gh_active? FSM_GHASH_RES:  FSM_GHASH_HASH_L;
 		FSM_GHASH_RES:        fsm_gh_q <=  gh_res_v? FSM_GHASH_IDLE: FSM_GHASH_RES;  
 		default:              fsm_gh_q <=  FSM_GHASH_IDLE;  
@@ -283,7 +286,25 @@ always @(posedge clk)
 	gh_buff_full_q <= (b_cnt_q == B_CNT_MAX_MIN1); 
 
 assign gh_start = ((fsm_gh_q == FSM_GHASH_HASH_A | fsm_gh_q == FSM_GHASH_HASH_C) & gh_buff_full_q)
-                | ((fsm_gh_q == FSM_GHASH_HASH_A_PAD | fsm_gh_q == FSM_GHASH_HASH_C_PAD | fsm_gh_q == FSM_GHASH_HASH_L) & ~gh_active);
+                | (~gh_active & ( 
+					(fsm_gh_q == FSM_GHASH_HASH_A_PAD & gh_buff_a_shift_done) 
+				   |(fsm_gh_q == FSM_GHASH_HASH_C_PAD & gh_buff_c_shift_done) 
+                   | fsm_gh_q == FSM_GHASH_HASH_L));
+// buffer shift counters
+localparam SHIFT_CNT_W = B_CNT_W - 2;// $clog2(8/PHY_W);
+localparam SHIFT_CNT_MAX = 15; 
+ 
+reg [SHIFT_CNT_W-1:0] gh_buff_a_shift_q; 
+reg [SHIFT_CNT_W-1:0] gh_buff_c_shift_q; 
+assign gh_buff_a_shift_done = gh_buff_a_shift_q == SHIFT_CNT_MAX; 
+assign gh_buff_c_shift_done = gh_buff_c_shift_q == SHIFT_CNT_MAX; 
+
+always @(posedge clk) 
+	if (fsm_gh_q == FSM_GHASH_HASH_A) gh_buff_a_shift_q <= b_cnt_q[B_CNT_W-1:2];
+	else if (~gh_buff_a_shift_done) gh_buff_a_shift_q <= gh_buff_a_shift_q + {{SHIFT_CNT_W-1{1'b0}}, 1'b1};
+always @(posedge clk) 
+	if (fsm_gh_q == FSM_GHASH_HASH_C) gh_buff_c_shift_q <= b_cnt_q[B_CNT_W-1:2];
+	else if (~gh_buff_c_shift_done) gh_buff_c_shift_q <= gh_buff_c_shift_q + {{SHIFT_CNT_W-1{1'b0}}, 1'b1};
 
 // L
 localparam GHASH_BLOCK_CNT_W = 64;
@@ -300,9 +321,10 @@ byteswap #(.W(W/8)) m_gh_l_byteswap(
 
 // A, L gh buffer
 wire [W-1:0] gh_buff_rst_next_data; // iverilog bugs
-wire [W-1:0] gh_buff_next;  
+wire [W-1:0] gh_buff_next; 
+ 
 assign gh_buff_rst_next_data[W-1-:PHY_W]  = data_i;
-assign gh_buff_rst_next_data[W-PHY_W-1:0] = {W-PHY_W{1'b0}};
+assign gh_buff_rst_next_data[W-PHY_W-1:0] = {W-PHY_W{1'bx}};
 assign gh_buff_rst_next = (fsm_gh_q == FSM_GHASH_HASH_L) ? gh_buff_l_swap: gh_buff_rst_next_data; 
 
 assign gh_buff_next[W-1-:PHY_W]  = data_i; 
@@ -313,7 +335,8 @@ assign gh_buff_rst = (fsm_q == FSM_A) & ~|b_cnt_q // A block start, even if A is
 
 always @(posedge clk) 
 	if (gh_buff_rst)  gh_buff_q <= gh_buff_rst_next; // A data guaranties 4 cycles minumum so it will be set for A
-	else if (data_v_i & ~data_enc_i) gh_buff_q <= gh_buff_next; // do not shift on L 
+	else if (data_v_i & ~data_enc_i) gh_buff_q <= gh_buff_next; // do not shift on L
+	else if ((fsm_gh_q == FSM_GHASH_HASH_A_PAD) & (gh_buff_a_shift_q!= SHIFT_CNT_MAX)) gh_buff_q <= {{8{1'b0}}, gh_buff_q[W-1:8]}; // we have at least a 32 cycle gap while previous buff is being calculated to perform the shift 
 
 // C gh buffer
 assign gh_buff_c_rst = (fsm_q == FSM_C) & ~|b_cnt_q; 
@@ -357,7 +380,7 @@ assign res_next = fsm_q == FSM_A ? data : data_xor_aes;
 
 
 // output 
-assign data_v_o     = tag_v | data_v_i; 
+assign data_v_o     = ((fsm_gh_q == FSM_GHASH_RES) & gh_res_v) | (fsm_q == FSM_ICV) | data_v_i; 
 assign data_start_o = 1'bx; 
 assign data_last_o  = tag_v & (tag_cnt_q == B_CNT_MAX_MIN1); 
 assign data_o       = res_next; 
