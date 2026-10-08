@@ -52,7 +52,8 @@ async def wr_sram_config(dut, conf: sram_config):
 	dut.gcm_sram_h.value = "X"		
 	dut.gcm_sram_k.value = "X"		
 	dut.gcm_sram.value = "X" * 16 		
-	dut.gcm_sram_v.value = 0		
+	dut.gcm_sram_v.value = 0	
+	cocotb.log.info("config wr finished") 	
 
 async def set_random_config(dut): 
 	conf = sram_config()
@@ -83,12 +84,14 @@ async def set_data(dut, data:bytearray, a_l:int):
 	dut.gcm_rx_enc.value = "X"
 	dut.gcm_rx_last.value = "X"
 	dut.gcm_rx.value = "X"*2
+	cocotb.log.info("set_data finished") 	
 
 async def read_data(dut):
 	res = bytearray(b'')
 	b = 0
 	i = 0
 	t = 0
+	cocotb.log.info("rd data start") 	
 	while (t < TIMEOUT):
 		if (dut.gcm_tx_v.value == 1):
 			tmp = int(dut.gcm_tx.value)

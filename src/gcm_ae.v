@@ -218,7 +218,7 @@ always @(posedge clk)
 wire [W-1:0]    iv; 
 wire [C_CNT_W-1:0] iv_lsb;
 assign iv_lsb = (fsm_q != FSM_ICV_CALC) ? iv_cnt_q : {{C_CNT_W-1{1'b0}}, 1'b1};
-assign iv     = { sci_i, pn_i, {32-C_CNT_W{1'b0}}, iv_lsb}; 
+assign iv     = {sci_i, pn_i, {32-C_CNT_W{1'b0}}, iv_lsb}; 
 
 aes_compact m_aes(
 	.clk(clk), 
