@@ -121,4 +121,4 @@ def check_result(plain: bytearray, a_l:int, result:bytearray):
 	expected_res = plain[0:a_l] + ciphertext + tag
 	cocotb.log.info(f"cipher 0x{ciphertext.hex()}")
 	cocotb.log.info(f"tag    0x{tag.hex()}")
-	assert expected_res == result, f"missmatch\ngot: 0x{result.hex()}\nexp: 0x{expected_res.hex()}"	
+	assert expected_res == result, f"missmatch\ngot: 0x{result.hex()} tag: 0x{result[-16:].hex()}\nexp: 0x{expected_res.hex()} tag: 0x{expected_res[-16:].hex()}"	

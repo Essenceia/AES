@@ -173,7 +173,7 @@ reg [2:0] fsm_aes_q;
 wire aes_res_v; 
 wire aes_hash_set; 
 wire aes_force_tag; // force dropping of current block hash and calculation of tag hash
-assign aes_force_tag = 1'b0; // TODO
+assign aes_force_tag = data_v_i & data_last_i; 
 always @(posedge clk) begin
 	if (~rst_n | init_i) fsm_aes_q <= FSM_AES_IDLE; 
 	else case(fsm_aes_q) 
@@ -223,6 +223,8 @@ assign iv     = { sci_i, pn_i, {32-C_CNT_W{1'b0}}, iv_lsb};
 aes_compact m_aes(
 	.clk(clk), 
 	.rst_n(rst_n), 
+
+	.halt_i  (fsm_aes_q == FSM_AES_LD_KEY), 
 	
 	.start_i (fsm_aes_q == FSM_AES_LD_DATA), 
 	.data_v_i(fsm_aes_q == FSM_AES_LD_DATA),

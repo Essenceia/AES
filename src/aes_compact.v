@@ -54,6 +54,8 @@ module aes_compact #(
 )(
 	input  wire clk,
 	input  wire rst_n,
+
+	input  wire             halt_i, // nuke onging calculations 
 	
 	input  wire             start_i, 
 	input  wire             data_v_i, // input valid
@@ -93,15 +95,15 @@ always @(posedge clk) begin
 			rnd_q <= {RND_CNT_W{1'b0}};
 		end
 		RND_BUBBLE: begin
-			fsm_q <= RND_INNER; 
+			fsm_q <= halt_i ? RND_FIRST: RND_INNER; 
 			rnd_q <= {{RND_CNT_W-1{1'b0}}, 1'b1}; 
 		end
 		RND_INNER: begin
-			fsm_q <= rnd_last_next ? RND_LAST: RND_INNER;
+			fsm_q <= halt_i ? RND_FIRST : rnd_last_next ? RND_LAST: RND_INNER;
 			rnd_q <= rnd_q + {{RND_CNT_W-1{1'b0}}, rnd_inc}; 
 		end
 		RND_LAST: begin
-			fsm_q <= rnd_inc ? RND_FIRST: RND_LAST; 
+			fsm_q <= halt_i? RND_FIRST : rnd_inc ? RND_FIRST: RND_LAST; 
 			rnd_q <= rnd_inc ? {RND_CNT_W{1'b0}}: rnd_q;
 		end
 		endcase
