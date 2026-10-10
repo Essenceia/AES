@@ -197,21 +197,22 @@ always @(posedge clk)
 // previous aes hash
 wire         aes_hash_shift; 
 wire [W-1:0] aes_res; 
-reg          aes_hash_set_first_q;  
+reg          aes_hash_v_q;  
 
-assign aes_hash_set = (b_cnt_q == B_CNT_MAX_MIN1) 
-                    | ~aes_hash_set_first_q & (fsm_aes_q == FSM_AES_RES); 
+assign aes_hash_set = (b_cnt_q == B_CNT_MAX_MIN1 & fsm_q == FSM_C)
+					| (aes_res_v & fsm_q == FSM_A & ~aes_hash_v_q)
+					| (aes_res_v & fsm_q == FSM_ICV_CALC); 
 `ifdef TB
 assert(aes_hash_set |-> aes_rev_v | fsm_aes_q == FSM_AES_RES); 
 `endif 
 always @(posedge clk) 
-	if (init_i) aes_hash_set_first_q <= 1'b0;  
-	else aes_hash_set_first_q <= aes_hash_set_first_q | aes_res_v; 
+	if (init_i) aes_hash_v_q <= 1'b0;  
+	else aes_hash_v_q <= aes_hash_v_q | aes_res_v; 
 
 assign aes_hash_shift = (data_v_i & data_enc_i) | tag_v; 
 always @(posedge clk) 
 	if (aes_hash_set) aes_hash_q <= aes_res; 
-	else if (aes_hash_shift) aes_hash_q <= {aes_hash_q[W-PHY_W-1:0], {PHY_W{1'b0}}};
+	else if (aes_hash_shift) aes_hash_q <= {aes_hash_q[W-PHY_W-1:0], {PHY_W{1'bx}}};
 
 // J0 is the same as the C block counter + 1, IV is 96 bits and is constant during 
 // then entire encryption
@@ -383,5 +384,11 @@ assign res_next = fsm_q == FSM_A ? data : data_xor_aes;
 assign data_v_o     = ((fsm_gh_q == FSM_GHASH_RES) & gh_res_v) | (fsm_q == FSM_ICV) | data_v_i; 
 assign data_start_o = 1'bx; 
 assign data_last_o  = tag_v & (tag_cnt_q == B_CNT_MAX_MIN1); 
-assign data_o       = res_next; 
+assign data_o       = res_next;
+
+// debug 
+wire [127:0] debug_ghash_final = 128'h1BDA7DB505D8A165264986A703A6920D;
+wire [127:0] debug_aes_final   = 128'hEB4E051CB548A6B5490F6F11A27CB7D0;
+
+wire [127:0] debug_t_final = debug_ghash_final ^ debug_aes_final; 
 endmodule
