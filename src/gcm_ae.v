@@ -250,11 +250,15 @@ wire             gh_l_start_next;
 reg              fsm_gh_c_next_q; 
 wire             gh_buff_a_shift_done; 
 wire             gh_buff_c_shift_done; 
+reg              gh_block_aligned_q; 
 
 
 always @(posedge clk) 
 	if (init_i | (fsm_gh_q == FSM_GHASH_HASH_C)) fsm_gh_c_next_q <= 1'b0; 
 	else fsm_gh_c_next_q <= fsm_gh_c_next_q | (data_v_i & data_enc_i);
+
+always @(posedge clk) // a direct transition to L is only possible for a perfectly aligned block  
+	gh_block_aligned_q <= (fsm_gh_q == FSM_GHASH_HASH_A) | (fsm_gh_q == FSM_GHASH_HASH_C); 
  
 always @(posedge clk) begin
 	if (~rst_n) fsm_gh_q <= FSM_GHASH_IDLE; 
@@ -269,7 +273,7 @@ always @(posedge clk) begin
 		FSM_GHASH_HASH_C:     fsm_gh_q <= (data_last_i | pkt_end_q)? ((b_cnt_q == B_CNT_MAX_MIN1) ? FSM_GHASH_HASH_L : FSM_GHASH_HASH_C_PAD) :
 							  			   FSM_GHASH_HASH_C;
 		FSM_GHASH_HASH_C_PAD: fsm_gh_q <= ~gh_active ? FSM_GHASH_HASH_L: FSM_GHASH_HASH_C_PAD; 
-		FSM_GHASH_HASH_L:     fsm_gh_q <= ~gh_active? FSM_GHASH_RES:  FSM_GHASH_HASH_L;
+		FSM_GHASH_HASH_L:     fsm_gh_q <= ~gh_active & ~gh_block_aligned_q? FSM_GHASH_RES:  FSM_GHASH_HASH_L;
 		FSM_GHASH_RES:        fsm_gh_q <=  gh_res_v? FSM_GHASH_IDLE: FSM_GHASH_RES;  
 		default:              fsm_gh_q <=  FSM_GHASH_IDLE;  
 	endcase

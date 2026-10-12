@@ -78,7 +78,6 @@ async def plain_random(dut):
 	await rst(dut)
 	for _ in range(TEST_ITER):
 		conf = create_random_config()
-		#a_l = random.randrange(14, 80)
-		a_l = 64
+		a_l = random.randrange(14, 80)
 		data = random.randbytes(a_l)
 		await gcm_ae_utils.send_data_check_result(dut=dut, data=data, config=conf, a_l=a_l)
