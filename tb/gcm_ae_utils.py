@@ -78,7 +78,7 @@ async def set_data(dut, data:bytearray, a_l:int):
 			b = data[int(i/4)]  
 		dut.gcm_rx.value =0x3 & (b >> (i%4)*2)
 		dut.gcm_rx_last.value = 1 if i == 4*l-1 else 0 
-		dut.gcm_rx_enc.value = i in range(a_l*4, l*4)
+		dut.gcm_rx_enc.value = 1 if i in range(a_l*4, l*4) else 0
 		await ClockCycles(dut.clk, 1)
 	dut.gcm_rx_v.value = 0 
 	dut.gcm_rx_enc.value = "X"

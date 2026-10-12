@@ -197,6 +197,7 @@ always @(posedge clk)
 // previous aes hash
 wire         aes_hash_shift; 
 wire [W-1:0] aes_res; 
+wire [W-1:0] aes_res_swap; 
 reg          aes_hash_v_q;  
 
 assign aes_hash_set = (b_cnt_q == B_CNT_MAX_MIN1 & fsm_q == FSM_C)
@@ -211,13 +212,17 @@ always @(posedge clk)
 
 assign aes_hash_shift = (data_v_i & data_enc_i) | tag_v; 
 always @(posedge clk) 
-	if (aes_hash_set) aes_hash_q <= aes_res; 
-	else if (aes_hash_shift) aes_hash_q <= {aes_hash_q[W-PHY_W-1:0], {PHY_W{1'bx}}};
+	if (aes_hash_set) aes_hash_q <= aes_res_swap; 
+	else if (aes_hash_shift) aes_hash_q <= {{PHY_W{1'bx}}, aes_hash_q[W-1:PHY_W]};
+
+byteswap #(.W(W/8)) m_aes_res_byteswap(
+	.i(aes_res),
+	.o(aes_res_swap));
 
 // J0 is the same as the C block counter + 1, IV is 96 bits and is constant during 
 // then entire encryption
-wire [W-1:0]    iv; 
 wire [C_CNT_W-1:0] iv_lsb;
+wire [W-1:0]       iv; 
 assign iv_lsb = (fsm_q != FSM_ICV_CALC) ? iv_cnt_q : {{C_CNT_W-1{1'b0}}, 1'b1};
 assign iv     = {sci_i, pn_i, {32-C_CNT_W{1'b0}}, iv_lsb}; 
 
@@ -375,10 +380,12 @@ ghash #(.SRAM_W(SRAM_W), .PHY_W(PHY_W)) m_ghash(
 // data pipe 
 wire [PHY_W-1:0] data; // next data
 
-assign data = tag_v ? gh_res : data_i; 
-assign data_xor_aes = data ^ aes_hash_q[W-1-:PHY_W]; 
+assign data = tag_v ? gh_res : data_i;
+assign data_xor_aes = data ^ aes_hash_q[PHY_W-1:0]; 
 assign res_next = fsm_q == FSM_A ? data : data_xor_aes;
 
+wire [PHY_W-1:0] debug_aes_xor; 
+assign debug_aes_xor = aes_hash_q[PHY_W-1:0]; 
 
 // output 
 assign data_v_o     = ((fsm_gh_q == FSM_GHASH_RES) & gh_res_v) | (fsm_q == FSM_ICV) | data_v_i; 
