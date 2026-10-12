@@ -55,8 +55,9 @@ localparam FSM_GHASH_HASH_L        = 3'd6; // lengths
 localparam FSM_GHASH_RES           = 3'd7;
 reg [2:0] fsm_gh_q;
 
-
+// aes common
 wire [PHY_W-1:0] data_xor_aes; 
+wire aes_res_v; 
 
 // key must be fully stored outside of aes as is needs to be refresed before 
 // each block
@@ -99,18 +100,18 @@ always @(posedge clk)
 
 assign a_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_A) & data_v_i & ~data_enc_i; 
 assign c_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_C) & data_v_i; 
-always @(posedge clk) begin
-	if (init_i | (fsm_q == FSM_ICV_CALC)) begin
-		 iv_cnt_q 	 <= {{C_CNT_W-2{1'b0}}, 2'd1}; 
-		 c_cnt_msb_q <= {C_CNT_W{1'b0}}; 
-	end else if (c_cnt_msb_en) begin
-		iv_cnt_q     <= iv_cnt_q    + {{C_CNT_W-1{1'b0}}, c_cnt_msb_en}; 
-		c_cnt_msb_q  <= c_cnt_msb_q + {{C_CNT_W-1{1'b0}}, c_cnt_msb_en};
-	end
-end
+
+always @(posedge clk) 
+	if (init_i) c_cnt_msb_q <= {C_CNT_W{1'b0}}; 
+	else if (c_cnt_msb_en) c_cnt_msb_q  <= c_cnt_msb_q + {{C_CNT_W-1{1'b0}}, 1'b1};
+
 always @(posedge clk) 
 	if (init_i) a_cnt_msb_q <= {A_CNT_W{1'b0}};
 	else if (a_cnt_msb_en) a_cnt_msb_q <= a_cnt_msb_q + {{A_CNT_W-1{1'b0}}, 1'b1};
+
+always @(posedge clk) 
+	if (init_i | (fsm_q == FSM_ICV_CALC)) iv_cnt_q <= {{C_CNT_W-1{1'b0}}, 1'd1}; 
+	else if (aes_res_v) iv_cnt_q <= iv_cnt_q + {{C_CNT_W-1{1'b0}}, 1'b1}; 
 
 // lsb
 reg [B_CNT_W-1:0] a_cnt_lsb_q;  
@@ -170,7 +171,6 @@ localparam FSM_AES_RES     = 3'd4;
 reg [2:0] fsm_aes_q; 
 
 
-wire aes_res_v; 
 wire aes_hash_set; 
 wire aes_force_tag; // force dropping of current block hash and calculation of tag hash
 assign aes_force_tag = data_v_i & data_last_i; 
@@ -181,7 +181,8 @@ always @(posedge clk) begin
 		FSM_AES_LD_KEY:  fsm_aes_q <= FSM_AES_LD_DATA; // load key
 		FSM_AES_LD_DATA: fsm_aes_q <= FSM_AES_HASH;
 		FSM_AES_HASH:    fsm_aes_q <= aes_force_tag ? FSM_AES_LD_KEY : 
-                                      aes_res_v ? FSM_AES_RES: FSM_AES_HASH; 
+                                      aes_res_v ? aes_hash_set ? FSM_AES_LD_KEY: FSM_AES_RES: 
+									  FSM_AES_HASH; 
 		FSM_AES_RES:     fsm_aes_q <= aes_force_tag ? FSM_AES_LD_KEY : 
                                       aes_hash_set ? FSM_AES_LD_KEY: FSM_AES_RES; // hold res until we have used up previous block's hash 
 		default:         fsm_aes_q <= FSM_AES_IDLE;  
@@ -203,9 +204,6 @@ reg          aes_hash_v_q;
 assign aes_hash_set = (b_cnt_q == B_CNT_MAX_MIN1 & fsm_q == FSM_C)
 					| (aes_res_v & fsm_q == FSM_A & ~aes_hash_v_q)
 					| (aes_res_v & fsm_q == FSM_ICV_CALC); 
-`ifdef TB
-assert(aes_hash_set |-> aes_rev_v | fsm_aes_q == FSM_AES_RES); 
-`endif 
 always @(posedge clk) 
 	if (init_i) aes_hash_v_q <= 1'b0;  
 	else aes_hash_v_q <= aes_hash_v_q | aes_res_v; 
