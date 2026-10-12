@@ -95,18 +95,20 @@ async def read_data(dut):
 				res.append(b) 
 				b = 0	
 			i = i + 1
+			if dut.gcm_tx_last.value == 1:
+				break
 		t = t + 1
-		if (dut.gcm_tx_v.value == 1 and dut.gcm_tx_last.value == 1):
-			break
 		await ClockCycles(dut.clk, 1)	
+	await ClockCycles(dut.clk, 1) # prevent capturing previous data rd end	
 	return res
 
 async def send_data_check_result(dut, data: bytearray, config:sram_config, a_l:int): 
 
 	# trigger threads at the time 	
 	conf = cocotb.start_soon(set_config(dut, config))
-	wr = cocotb.start_soon(set_data(dut, data, a_l)) 
 	rd = cocotb.start_soon(read_data(dut))
+	await ClockCycles(dut.clk, 1) # wait for init cycle 
+	wr = cocotb.start_soon(set_data(dut, data, a_l)) 
 	await conf
 	await wr
 	result = await rd
