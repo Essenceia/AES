@@ -6,10 +6,10 @@ Pre-load aes(H) and K from SRAM
 `default_nettype none 
 
 module gcm_ae #(
-	parameter PHY_W = 2, 
-	localparam SCI_W = 64,
 	parameter W = 128,
-	parameter  SRAM_W = 16, 
+	parameter PHY_W   = 2, 
+	localparam SCI_W  = 64,
+	parameter SRAM_W  = 16, 
 	parameter C_CNT_W = 10, // cipher block count
 	parameter A_CNT_W = 10  // clear text block count
 )(
@@ -100,8 +100,8 @@ always @(posedge clk)
 assign a_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_A) & data_v_i & ~data_enc_i; 
 assign c_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_C) & data_v_i; 
 always @(posedge clk) begin
-	if (init_i) begin
-		 iv_cnt_q 	 <= {{C_CNT_W-2{1'b0}}, 2'd2}; 
+	if (init_i | (fsm_q == FSM_ICV_CALC)) begin
+		 iv_cnt_q 	 <= {{C_CNT_W-2{1'b0}}, 2'd1}; 
 		 c_cnt_msb_q <= {C_CNT_W{1'b0}}; 
 	end else if (c_cnt_msb_en) begin
 		iv_cnt_q     <= iv_cnt_q    + {{C_CNT_W-1{1'b0}}, c_cnt_msb_en}; 
@@ -221,10 +221,8 @@ byteswap #(.W(W/8)) m_aes_res_byteswap(
 
 // J0 is the same as the C block counter + 1, IV is 96 bits and is constant during 
 // then entire encryption
-wire [C_CNT_W-1:0] iv_lsb;
 wire [W-1:0]       iv; 
-assign iv_lsb = (fsm_q != FSM_ICV_CALC) ? iv_cnt_q : {{C_CNT_W-1{1'b0}}, 1'b1};
-assign iv     = {sci_i, pn_i, {32-C_CNT_W{1'b0}}, iv_lsb}; 
+assign iv     = {sci_i, pn_i, {32-C_CNT_W{1'b0}}, iv_cnt_q}; 
 
 aes_compact m_aes(
 	.clk(clk), 
