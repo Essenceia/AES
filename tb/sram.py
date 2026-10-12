@@ -1,3 +1,6 @@
+import Crypto
+from Crypto.Cipher import AES
+
 import random
 from dataclasses import dataclass, field
 
@@ -8,17 +11,14 @@ class sram_config:
 	k:   bytes = field(default_factory= lambda: bytes(16)) # 128 for now
 	h:   bytes = field(default_factory= lambda: bytes(16)) 
 
-	def __init__(self, pn: bytes(8), sci:bytes(8), k:bytes(16), h:bytes(16)):
+	def __init__(self, pn: bytes(8), sci:bytes(8), k:bytes(16)):
 		self.pn = pn
 		self.sci = sci 
 		self.k = k 
-		self.h = h
+		# H is the result of AES(K, 0)	
+		cipher = AES.new(k, AES.MODE_ECB)
+		self.h = cipher.encrypt(bytearray(16))
 
-	def random(self): 
-		self.pn = random.randbytes(8) 
-		self.sci = random.randbytes(8) 
-		self.k = random.randbytes(16) 
-		self.h = random.randbytes(16) 
 	def raw(self) -> bytearray:
 		r = bytearray()
 		r += self.pn 
@@ -35,3 +35,15 @@ class sram_config:
 		iv += self.pn[0:4]
 		assert(len(iv) == 12)
 		return iv
+
+def create_random_config() -> sram_config: 
+	pn = random.randbytes(8) 
+	sci = random.randbytes(8) 
+	k = random.randbytes(16) 
+	conf = sram_config(pn=pn, sci = sci, k = k)
+	return conf 
+
+
+
+
+

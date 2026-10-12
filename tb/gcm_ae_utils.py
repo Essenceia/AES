@@ -55,11 +55,6 @@ async def wr_sram_config(dut, conf: sram_config):
 	dut.gcm_sram_v.value = 0	
 	cocotb.log.info("config wr finished") 	
 
-async def set_random_config(dut): 
-	conf = sram_config()
-	conf.random()
-	await set_config(conf)	
-
 async def set_config(dut, conf: sram_config): 
 	dut.gcm_init.value = 1
 	await ClockCycles(dut.clk, 1) 
@@ -107,6 +102,8 @@ async def read_data(dut):
 	return res
 
 async def send_data_check_result(dut, data: bytearray, config:sram_config, a_l:int): 
+	await set_config(dut, config)
+
 	# trigger both threads at the time 	
 	wr = cocotb.start_soon(set_data(dut, data, a_l)) 
 	rd = cocotb.start_soon(read_data(dut))
@@ -124,4 +121,19 @@ def check_result(plain: bytearray, config:sram_config, a_l:int, result:bytearray
 	expected_res = plain[0:a_l] + ciphertext + tag
 	cocotb.log.info(f"cipher 0x{ciphertext.hex()}")
 	cocotb.log.info(f"tag    0x{tag.hex()}")
-	assert expected_res == result, f"missmatch\ngot: 0x{result.hex()} tag: 0x{result[-16:].hex()}\nexp: 0x{expected_res.hex()} tag: 0x{expected_res[-16:].hex()}"	
+	if expected_res != result:
+		cocotb.log.error(f"missmatch\ngot: 0x{result.hex()}\nexp: 0x{expected_res.hex()}")
+		cocotb.log.error(f"got tag: 0x{result[-16:].hex()}\nexp tag: 0x{expected_res[-16:].hex()}")
+		# calculate inner aes
+		J0 = config.get_iv() + b'\x00\x00\x00\x01'
+		assert(len(J0) == 16)
+		k = config.k
+		inner_aes = AES.new(k, AES.MODE_ECB)
+		tag_aes = inner_aes.encrypt(J0)
+		tag = expected_res[-16:]
+		tag_ghash = bytearray(16)
+		for i in range(len(tag)): 
+			tag_ghash[i] = tag_aes[i] ^ tag[i]
+		cocotb.log.error(f"\ntag aes:   0x{tag_aes.hex()}\ntag ghash: 0x{tag_ghash.hex()}")
+		assert(0)
+		
