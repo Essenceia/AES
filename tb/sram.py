@@ -3,10 +3,10 @@ from dataclasses import dataclass, field
 
 @dataclass
 class sram_config: 
-	pn: bytes  = field(default_factory= lambda: bytes(8)) #64b 
+	pn:  bytes = field(default_factory= lambda: bytes(8)) #64b 
 	sci: bytes = field(default_factory= lambda: bytes(8)) 
-	k: bytes   = field(default_factory= lambda: bytes(16)) # 128 for now
-	h: bytes   = field(default_factory= lambda: bytes(16)) 
+	k:   bytes = field(default_factory= lambda: bytes(16)) # 128 for now
+	h:   bytes = field(default_factory= lambda: bytes(16)) 
 
 	def __init__(self, pn: bytes(8), sci:bytes(8), k:bytes(16), h:bytes(16)):
 		self.pn = pn
@@ -27,4 +27,13 @@ class sram_config:
 		r += self.h 
 		return r
 	def __str__(self) -> str: 
-		return f"sram_config:\n\tpn= {self.pn.hex()}\n\tsci={self.sci.hex()}\n\tk=  {self.k.hex()}\n\th=  {self.h.hex()}\n"
+		return f"sram_config:\n\tpn= {self.pn.hex()}\n\tsci={self.sci.hex()}\n\tiv= {self.get_iv().hex()}\n\tk=  {self.k.hex()}\n\th=  {self.h.hex()}\n"
+	
+	def get_iv(self) -> bytearray:
+		iv = bytearray()
+		iv += self.sci
+		iv += self.pn[0:4]
+		iv += bytearray(4)
+		iv[15] = 1
+		assert(len(iv) == 16)
+		return iv

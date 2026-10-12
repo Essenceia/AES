@@ -29,12 +29,12 @@ async def wr_sram_config(dut, conf: sram_config):
 	dut.gcm_pn.value = "X" * 32
 	dut.gcm_sci.value = "X" * 64
 
-	pn = dut.gcm_pn.value 
+	pn  = dut.gcm_pn.value 
 	sci = dut.gcm_sci.value 
 	s = dut.gcm_sram.value
 	cocotb.log.info(f"writing sram config {conf}")
 	for i, b in enumerate(raw_config):
-		if i in range(4,8): # 32 lsb of PN
+		if i in range(0,4): # 32 lsb of PN
 			pn[31:8] = pn[23:0] 
 			pn[7:0] = b
 			dut.gcm_pn.value = pn
@@ -106,19 +106,19 @@ async def read_data(dut):
 		await ClockCycles(dut.clk, 1)	
 	return res
 
-async def send_data(dut, data: bytearray, a_l:int): 
+async def send_data_check_result(dut, data: bytearray, config:sram_config, a_l:int): 
 	# trigger both threads at the time 	
 	wr = cocotb.start_soon(set_data(dut, data, a_l)) 
 	rd = cocotb.start_soon(read_data(dut))
 	await wr
 	result = await rd
 	cocotb.log.info(f"res  0x{result.hex()} length={len(result)}")
-	check_result(data, a_l, result)
+	check_result(plain=data, config=config, a_l=a_l, result=result)
 
-def check_result(plain: bytearray, a_l:int, result:bytearray):
+def check_result(plain: bytearray, config:sram_config, a_l:int, result:bytearray):
 	assert (len(plain) + 16) == len(result), f"length of reults is expact to be 16 longer than length of original expected {len(plain)+16} got {len(result)}" 
-	key = random.randbytes(16)
-	cipher = AES.new(key, AES.MODE_GCM)
+	
+	cipher = AES.new(config.k, AES.MODE_GCM, nonce=config.get_iv())
 	cipher.update(plain[0:a_l])
 	ciphertext, tag = cipher.encrypt_and_digest(plain[a_l:])
 	expected_res = plain[0:a_l] + ciphertext + tag
