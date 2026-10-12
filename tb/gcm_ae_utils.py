@@ -102,11 +102,12 @@ async def read_data(dut):
 	return res
 
 async def send_data_check_result(dut, data: bytearray, config:sram_config, a_l:int): 
-	await set_config(dut, config)
 
-	# trigger both threads at the time 	
+	# trigger threads at the time 	
+	conf = cocotb.start_soon(set_config(dut, config))
 	wr = cocotb.start_soon(set_data(dut, data, a_l)) 
 	rd = cocotb.start_soon(read_data(dut))
+	await conf
 	await wr
 	result = await rd
 	cocotb.log.info(f"res  0x{result.hex()} length={len(result)}")
