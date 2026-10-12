@@ -33,7 +33,5 @@ class sram_config:
 		iv = bytearray()
 		iv += self.sci
 		iv += self.pn[0:4]
-		iv += bytearray(4)
-		iv[15] = 1
-		assert(len(iv) == 16)
+		assert(len(iv) == 12)
 		return iv
