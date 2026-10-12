@@ -79,7 +79,7 @@ async def read_res(dut) -> bytearray:
 	for i in range(0, GHASH_RES_CYCLES):
 		idx = int(i/4)
 		tmp = int(dut.gh_res.value)
-		res[idx] = res[idx] | (tmp << (6-2*(i%4)))
+		res[idx] = res[idx] | (tmp << (2*(i%4)))
 		cocotb.log.debug(f"{i} capture {dut.gh_res.value} buf {res[idx]}")
 		await ClockCycles(dut.clk, 1)
 	dut.gh_res_shift.value = 0

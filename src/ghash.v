@@ -81,13 +81,14 @@ assign block_finished = res_early_v_q;
 
 // galois dot product
 reg [W-1:0]  v_q, z_q;
+wire [W-1:0] z_q_swap;
 
 // X
 reg [W-1:0] x_q; 
 wire xi[STEPS_CYCLE_N:0];
  
 always @(posedge clk) 
-	if (data_v_i) x_q <= data_i ^ z_q; // { x0, x1, x2 ... x127}
+	if (data_v_i) x_q <= data_i ^ z_q_swap; // { x0, x1, x2 ... x127}
 	else x_q <= {x_q[W-STEPS_CYCLE_N-1:0], {STEPS_CYCLE_N{1'bx}} }; // implied fsm_q == FSM_BLOCK 
 	
 reg [W-1:0] v0_q;
@@ -99,20 +100,32 @@ always @(posedge clk)
 wire [W-1:0] vi_inc[STEPS_CYCLE_N:0];
 wire [W-1:0] zi_inc[STEPS_CYCLE_N:0]; 
 /* verilator lint_on UNOPTFLAT */
+wire [W-1:0] zi_last_swap; 
 
 wire [W-1:0] z_shift_next; 
-assign z_shift_next = { z_q[W-PHY_W-1:0], {PHY_W{1'bx}} };
+assign z_shift_next = {{PHY_W{1'bx}}, z_q[W-1:PHY_W]};
+
 always @(posedge clk)
 	if (h_v_i | data_v_i | ~rst_n)z_q <= {W{1'b0}};
-	else if (fsm_q == FSM_BLOCK)  z_q <= zi_inc[STEPS_CYCLE_N];
+	else if (fsm_q == FSM_BLOCK)  z_q <= zi_last_swap;
 	else if (res_shift_i)         z_q <= z_shift_next;
 
 always @(posedge clk) 
 	if (data_v_i) v_q <= v0_q;
 	else          v_q <= vi_inc[STEPS_CYCLE_N];
 
+
+// store z_q byteswapped to save on an extra mux
+byteswap #(.W(W/8)) m_z_inc_last_byteswap(
+	.i(zi_inc[STEPS_CYCLE_N]),
+	.o(zi_last_swap)); 
+
+byteswap #(.W(W/8)) m_z_inc_zero_byteswap(
+	.i(z_q),
+	.o(z_q_swap)); 
+
+assign zi_inc[0] = z_q_swap;
 assign vi_inc[0] = v_q; 
-assign zi_inc[0] = z_q; 
 
 genvar i; 
 generate 
@@ -129,11 +142,21 @@ generate
 		assign zi_inc[i+1] = zi_inc[i] ^ ({W{xi[i]}} & vi_inc[i]);
 	end
 endgenerate
+// debug 
+wire [W-1:0] debug_zi_inc0; 
+wire [W-1:0] debug_zi_inc1; 
+wire [W-1:0] debug_zi_inc2; 
+wire [W-1:0] debug_zi_inc3;
+wire debug_xi_0;  
+assign debug_zi_inc0 = zi_inc[0];
+assign debug_zi_inc1 = zi_inc[1];
+assign debug_zi_inc2 = zi_inc[2];
+assign debug_zi_inc3 = zi_inc[3];
 
 // output 
 assign res_v_o       = res_v_q; 
 assign res_early_v_o = res_early_v_q; 
-assign res_o         = z_q[W-1-:PHY_W];
+assign res_o         = z_q[PHY_W-1:0];
 
 assign active_o = (fsm_q == FSM_BLOCK); 
 endmodule
