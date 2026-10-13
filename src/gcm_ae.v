@@ -25,6 +25,7 @@ module gcm_ae #(
 	
 	// RX Eth - post address table lookup and match
 	input wire                   data_v_i, 
+	input wire                   data_enc_early_i, // align with behavior of last
 	input wire                   data_enc_i, // encrypt incoming data
 	input wire                   data_last_i, 
 	input wire [PHY_W-1:0]       data_i, 
@@ -268,8 +269,8 @@ always @(posedge clk) begin
 	else case (fsm_gh_q) 
 		FSM_GHASH_IDLE:       fsm_gh_q <=  sram_v_i & sram_h_i ? FSM_GHASH_LD_H:   FSM_GHASH_IDLE; 
 		FSM_GHASH_LD_H:       fsm_gh_q <= ~sram_v_i & data_v_i ? FSM_GHASH_HASH_A: FSM_GHASH_LD_H; 
-		FSM_GHASH_HASH_A:     fsm_gh_q <= ~(data_enc_i | data_last_i) ? FSM_GHASH_HASH_A:
-							  			   (b_cnt_q == B_CNT_MAX_MIN1) ? (data_enc_i ? FSM_GHASH_HASH_C : FSM_GHASH_HASH_L):// transition, is block on boundary else go to pad
+		FSM_GHASH_HASH_A:     fsm_gh_q <= ~(data_enc_early_i | data_last_i) ? FSM_GHASH_HASH_A:
+							  			   (b_cnt_q == B_CNT_MAX_MIN1) ? (data_enc_early_i ? FSM_GHASH_HASH_C : FSM_GHASH_HASH_L):// transition, is block on boundary else go to pad
 						                   FSM_GHASH_HASH_A_PAD;
 		FSM_GHASH_HASH_A_PAD: fsm_gh_q <= ~gh_active & gh_buff_a_shift_done ? (fsm_gh_c_next_q ? FSM_GHASH_HASH_C: FSM_GHASH_HASH_L) :
 							  		       FSM_GHASH_HASH_A_PAD; 
