@@ -97,7 +97,8 @@ async def read_data(dut):
 		if (dut.gcm_tx_v.value == 1):
 			tmp = int(dut.gcm_tx.value)
 			b = b | (tmp << 2*(i%4)) 
-			if i % 4 == 3: 
+			if i % 4 == 3:
+				cocotb.log.info(f"{int(i/4)} {hex(b)}") 
 				res.append(b) 
 				b = 0	
 			i = i + 1
@@ -123,26 +124,42 @@ async def send_data_check_result(dut, data: bytearray, config:sram_config, a_l:i
 
 def check_result(plain: bytearray, config:sram_config, a_l:int, result:bytearray):
 	assert (len(plain) + 16) == len(result), f"length of reults is expact to be 16 longer than length of original expected {len(plain)+16} got {len(result)}" 
-	
+	fail = False	
+
 	cipher = AES.new(config.k, AES.MODE_GCM, nonce=config.get_iv())
 	cipher.update(plain[0:a_l])
-	ciphertext, tag = cipher.encrypt_and_digest(plain[a_l:])
-	expected_res = plain[0:a_l] + ciphertext + tag
-	cocotb.log.info(f"cipher 0x{ciphertext.hex()}")
-	cocotb.log.info(f"tag    0x{tag.hex()}")
-	if expected_res != result:
-		cocotb.log.error(f"missmatch\ngot: 0x{result.hex()}\nexp: 0x{expected_res.hex()}")
-		cocotb.log.error(f"got tag: 0x{result[-16:].hex()}\nexp tag: 0x{expected_res[-16:].hex()}")
+	exp_c, exp_t = cipher.encrypt_and_digest(plain[a_l:])
+	expected_res = plain[0:a_l] + exp_c + exp_t
+	cocotb.log.info(f"cipher 0x{exp_c.hex()}")
+	cocotb.log.info(f"tag    0x{exp_t.hex()}")
+
+	got_p = result[:a_l]
+	exp_p = plain[:a_l]
+	if got_p != exp_p: 
+		cocotb.log.error(f"missmatch plain\n\tgot: 0x{got_p.hex()}\n\texp: 0x{exp_p.hex()}")
+		fail = True
+
+	l = len(plain)
+	got_c = result[a_l:l]
+	if got_c != exp_c: 
+		cocotb.log.error(f"missmatch C\n\tgot: 0x{got_c.hex()}\n\texp: 0x{exp_c.hex()}")
+		fail = True
+
+	got_t = result[-16:]
+	if got_t != exp_t:
+		cocotb.log.error(f"missmatch tag\n\tgot: 0x{got_t.hex()}\nexp: 0x{exp_t.hex()}")
+		fail = True
 		# calculate inner aes
 		J0 = config.get_iv() + b'\x00\x00\x00\x01'
 		assert(len(J0) == 16)
 		k = config.k
 		inner_aes = AES.new(k, AES.MODE_ECB)
 		tag_aes = inner_aes.encrypt(J0)
-		tag = expected_res[-16:]
 		tag_ghash = bytearray(16)
-		for i in range(len(tag)): 
-			tag_ghash[i] = tag_aes[i] ^ tag[i]
+		for i in range(len(exp_t)): 
+			tag_ghash[i] = tag_aes[i] ^ exp_t[i]
 		cocotb.log.error(f"\nexp tag aes: 0x{tag_aes.hex()}\nexp tag gh:  0x{tag_ghash.hex()}")
+	
+	if fail:
 		assert(0)
 		
