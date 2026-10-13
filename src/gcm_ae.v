@@ -58,6 +58,7 @@ reg [2:0] fsm_gh_q;
 // aes common
 wire [PHY_W-1:0] data_xor_aes; 
 wire aes_res_v; 
+wire aes_res_v_early; 
 
 // key must be fully stored outside of aes as is needs to be refresed before 
 // each block
@@ -172,10 +173,11 @@ localparam FSM_AES_HASH    = 3'd3;
 localparam FSM_AES_RES     = 3'd4; 
 reg [2:0] fsm_aes_q; 
 
-
 wire aes_hash_set; 
 wire aes_force_tag; // force dropping of current block hash and calculation of tag hash
+reg  aes_force_tag_q;
 assign aes_force_tag = data_v_i & data_last_i; 
+
 always @(posedge clk) begin
 	if (~rst_n | init_i) fsm_aes_q <= FSM_AES_IDLE; 
 	else case(fsm_aes_q) 
@@ -183,9 +185,7 @@ always @(posedge clk) begin
 		FSM_AES_LD_KEY:  fsm_aes_q <= FSM_AES_LD_DATA; // load key
 		FSM_AES_LD_DATA: fsm_aes_q <= FSM_AES_HASH;
 		FSM_AES_HASH:    fsm_aes_q <= aes_force_tag ? FSM_AES_LD_KEY : 
-                                     /* aes_res_v ? aes_hash_set ? FSM_AES_LD_KEY: FSM_AES_RES: 
-									  FSM_AES_HASH; */ 
-									  aes_res_v ? FSM_AES_RES: FSM_AES_HASH; 
+									  aes_res_v_early ? FSM_AES_RES: FSM_AES_HASH; 
 		FSM_AES_RES:     fsm_aes_q <= aes_force_tag ? FSM_AES_LD_KEY : 
                                       aes_hash_set ? FSM_AES_LD_KEY: FSM_AES_RES; // hold res until we have used up previous block's hash 
 		default:         fsm_aes_q <= FSM_AES_IDLE;  
@@ -206,9 +206,13 @@ reg          aes_hash_v_q;
 
 assign aes_hash_set = (b_cnt_q == B_CNT_MAX_MIN2 & fsm_q == FSM_C)
 					| (aes_res_v & fsm_q == FSM_A & ~aes_hash_v_q)
-					| (aes_res_v & fsm_q == FSM_ICV_CALC); 
+					| (aes_res_v & fsm_q == FSM_ICV_CALC & ~aes_hash_v_q); 
+
+always @(posedge clk) // reset aes_res_v only after having sent tag calculation
+	aes_force_tag_q <= aes_force_tag; 
+
 always @(posedge clk) 
-	if (init_i) aes_hash_v_q <= 1'b0;  
+	if (init_i | aes_force_tag_q) aes_hash_v_q <= 1'b0;  
 	else aes_hash_v_q <= aes_hash_v_q | aes_res_v; 
 
 assign aes_hash_shift = (data_v_i & data_enc_i) | tag_v; 
@@ -235,9 +239,10 @@ aes_compact m_aes(
 	
 	.key_v_i(fsm_aes_q == FSM_AES_LD_KEY), 
 	.key_i  (key_q), 
-	
-	.res_v_o(aes_res_v),
-	.res_o  (aes_res)
+
+	.res_v_early_o(aes_res_v_early),
+	.res_v_o      (aes_res_v),
+	.res_o        (aes_res)
 );
 
 /* GHASH fsm

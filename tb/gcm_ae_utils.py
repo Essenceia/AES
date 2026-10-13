@@ -137,6 +137,6 @@ def check_result(plain: bytearray, config:sram_config, a_l:int, result:bytearray
 		tag_ghash = bytearray(16)
 		for i in range(len(tag)): 
 			tag_ghash[i] = tag_aes[i] ^ tag[i]
-		cocotb.log.error(f"\ntag aes:   0x{tag_aes.hex()}\ntag ghash: 0x{tag_ghash.hex()}")
+		cocotb.log.error(f"\nexp tag aes: 0x{tag_aes.hex()}\nexp tag gh:  0x{tag_ghash.hex()}")
 		assert(0)
 		

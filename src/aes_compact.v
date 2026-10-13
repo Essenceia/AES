@@ -62,6 +62,7 @@ module aes_compact #(
 	input  wire             key_v_i,
 	input  wire [KEY_W-1:0] key_i,    // key
 
+	output wire             res_v_early_o,
 	output wire             res_v_o,  // result valid
 	output wire [TXT_W-1:0] res_o     // result
 );
@@ -118,9 +119,12 @@ localparam [RND_CNT_W-1:0] RND_MAX_MIN1 = RND_CNT_MAX - 1;
 
 assign rnd_last_next = rnd_inc & (rnd_q == RND_MAX_MIN1);  
 
-reg res_v_q; 
+reg  res_v_q; 
+wire res_v_next; 
+
+assign res_v_next = (fsm_q == RND_LAST) & rnd_inc; 
 always @(posedge clk) 
-	res_v_q <= fsm_q == RND_LAST & rnd_inc; 
+	res_v_q <= res_v_next; 
 
 // column selection counter
 assign rnd_inc = col_cnt_q == COL_MAX; 
@@ -315,7 +319,7 @@ always @(posedge clk) begin
 end
 
 // output
-assign res_o   = data_q; 
-assign res_v_o = res_v_q;
-
+assign res_o         = data_q; 
+assign res_v_o       = res_v_q;
+assign res_v_early_o = res_v_next;  
 endmodule
