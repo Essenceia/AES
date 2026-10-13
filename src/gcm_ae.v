@@ -1,5 +1,8 @@
 /* Copyright Julia Desmazes, 2026, all rights reserved 
 
+Permission is explicitely not granted for this code to be used by any form of LLM 
+or used as part of any training dataset. 
+
 Pre-load aes(H) and K from SRAM 
 */
 
@@ -119,19 +122,19 @@ always @(posedge clk)
 	else if (aes_res_v) iv_cnt_q <= iv_cnt_q + {{C_CNT_W-1{1'b0}}, 1'b1}; 
 
 // lsb
-reg [B_CNT_W-1:0] a_cnt_lsb_q;  
-reg [B_CNT_W-1:0] c_cnt_lsb_q;  
+reg [B_CNT_W-1:2] a_cnt_lsb_q;  
+reg [B_CNT_W-1:2] c_cnt_lsb_q;  
 wire c_cnt_lsb_en; 
 wire a_cnt_lsb_en; 
 
 assign c_cnt_lsb_en = (fsm_q == FSM_C) & data_v_i & data_last_i; 
 always @(posedge clk)
-	if (init_i) c_cnt_lsb_q <= {B_CNT_W{1'b0}}; // need to rst since there might not be any C in pkt
-	else if (c_cnt_lsb_en) c_cnt_lsb_q <= b_cnt_next; 
+	if (init_i) c_cnt_lsb_q <= {B_CNT_W-2{1'b0}}; // need to rst since there might not be any C in pkt
+	else if (c_cnt_lsb_en) c_cnt_lsb_q <= b_cnt_next[B_CNT_W-1:2]; 
 
-assign a_cnt_lsb_en = (fsm_q == FSM_A) & data_v_i & (data_enc_i | data_last_i); 
+assign a_cnt_lsb_en = (fsm_q == FSM_A) & data_v_i & (data_enc_early_i | data_last_i); 
 always @(posedge clk)
-	if (a_cnt_lsb_en) a_cnt_lsb_q <= b_cnt_next;  
+	if (a_cnt_lsb_en) a_cnt_lsb_q <= b_cnt_next[B_CNT_W-1:2];  
 
 wire gh_res_v; 
 wire gh_res_early_v; 
@@ -251,7 +254,6 @@ Tracks what the current ghash module is hashing at the moment and what it should
  */ 
 wire             gh_active; 
 wire [PHY_W-1:0] gh_res;
-wire             gh_l_start_next; 
 reg              fsm_gh_c_next_q; 
 wire             gh_buff_a_shift_done; 
 wire             gh_buff_c_shift_done; 
@@ -293,7 +295,6 @@ wire         gh_buff_a_rst;
 reg  [W-1:0] gh_buff_a_q;  
 wire [W-1:0] gh_buff_a_rst_next; 
 // C buffers 
-wire          gh_buff_c_rst; 
 reg  [W-1:0]  gh_buff_c_q; 
 
 reg           gh_buff_full_q; 
@@ -327,8 +328,8 @@ wire [PHY_W-1:0] res_next;
 wire [W-1:0]     gh_buff_l;
 wire [W-1:0]     gh_buff_l_swap;
 
-wire [GHASH_BLOCK_CNT_W-1:0] gh_l_a = { {GHASH_BLOCK_CNT_W-A_CNT_W-B_CNT_W-1{1'b0}}, a_cnt_msb_q, a_cnt_lsb_q , 1'b0};
-wire [GHASH_BLOCK_CNT_W-1:0] gh_l_c = { {GHASH_BLOCK_CNT_W-A_CNT_W-B_CNT_W-1{1'b0}}, c_cnt_msb_q, c_cnt_lsb_q , 1'b0};
+wire [GHASH_BLOCK_CNT_W-1:0] gh_l_a = { {GHASH_BLOCK_CNT_W-A_CNT_W-B_CNT_W-1{1'b0}}, a_cnt_msb_q, a_cnt_lsb_q , 3'b0};
+wire [GHASH_BLOCK_CNT_W-1:0] gh_l_c = { {GHASH_BLOCK_CNT_W-A_CNT_W-B_CNT_W-1{1'b0}}, c_cnt_msb_q, c_cnt_lsb_q , 3'b0};
 assign gh_buff_l = {gh_l_a, gh_l_c};
 byteswap #(.W(W/8)) m_gh_l_byteswap(
 	.i(gh_buff_l), 

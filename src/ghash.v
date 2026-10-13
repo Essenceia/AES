@@ -147,7 +147,6 @@ wire [W-1:0] debug_zi_inc0;
 wire [W-1:0] debug_zi_inc1; 
 wire [W-1:0] debug_zi_inc2; 
 wire [W-1:0] debug_zi_inc3;
-wire debug_xi_0;  
 assign debug_zi_inc0 = zi_inc[0];
 assign debug_zi_inc1 = zi_inc[1];
 assign debug_zi_inc2 = zi_inc[2];
