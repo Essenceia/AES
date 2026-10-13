@@ -183,8 +183,9 @@ always @(posedge clk) begin
 		FSM_AES_LD_KEY:  fsm_aes_q <= FSM_AES_LD_DATA; // load key
 		FSM_AES_LD_DATA: fsm_aes_q <= FSM_AES_HASH;
 		FSM_AES_HASH:    fsm_aes_q <= aes_force_tag ? FSM_AES_LD_KEY : 
-                                      aes_res_v ? aes_hash_set ? FSM_AES_LD_KEY: FSM_AES_RES: 
-									  FSM_AES_HASH; 
+                                     /* aes_res_v ? aes_hash_set ? FSM_AES_LD_KEY: FSM_AES_RES: 
+									  FSM_AES_HASH; */ 
+									  aes_res_v ? FSM_AES_RES: FSM_AES_HASH; 
 		FSM_AES_RES:     fsm_aes_q <= aes_force_tag ? FSM_AES_LD_KEY : 
                                       aes_hash_set ? FSM_AES_LD_KEY: FSM_AES_RES; // hold res until we have used up previous block's hash 
 		default:         fsm_aes_q <= FSM_AES_IDLE;  
