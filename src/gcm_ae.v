@@ -109,8 +109,10 @@ always @(posedge clk)
 	if (init_i) a_cnt_msb_q <= {A_CNT_W{1'b0}};
 	else if (a_cnt_msb_en) a_cnt_msb_q <= a_cnt_msb_q + {{A_CNT_W-1{1'b0}}, 1'b1};
 
+wire [1:0] iv_cnt_rst; 
+assign iv_cnt_rst = (fsm_q == FSM_ICV_CALC)? 2'd1: 2'd2;
 always @(posedge clk) 
-	if (init_i | (fsm_q == FSM_ICV_CALC)) iv_cnt_q <= {{C_CNT_W-1{1'b0}}, 1'd1}; 
+	if (init_i | (fsm_q == FSM_ICV_CALC)) iv_cnt_q <= {{C_CNT_W-2{1'b0}}, iv_cnt_rst}; 
 	else if (aes_res_v) iv_cnt_q <= iv_cnt_q + {{C_CNT_W-1{1'b0}}, 1'b1}; 
 
 // lsb
@@ -201,7 +203,7 @@ wire [W-1:0] aes_res;
 wire [W-1:0] aes_res_swap; 
 reg          aes_hash_v_q;  
 
-assign aes_hash_set = (b_cnt_q == B_CNT_MAX_MIN1 & fsm_q == FSM_C)
+assign aes_hash_set = (b_cnt_q == B_CNT_MAX_MIN2 & fsm_q == FSM_C)
 					| (aes_res_v & fsm_q == FSM_A & ~aes_hash_v_q)
 					| (aes_res_v & fsm_q == FSM_ICV_CALC); 
 always @(posedge clk) 
@@ -392,10 +394,4 @@ assign data_v_o     = ((fsm_gh_q == FSM_GHASH_RES) & gh_res_v) | (fsm_q == FSM_I
 assign data_start_o = 1'bx; 
 assign data_last_o  = tag_v & (tag_cnt_q == B_CNT_MAX_MIN1); 
 assign data_o       = res_next;
-
-// debug 
-wire [127:0] debug_ghash_final = 128'h1BDA7DB505D8A165264986A703A6920D;
-wire [127:0] debug_aes_final   = 128'hEB4E051CB548A6B5490F6F11A27CB7D0;
-
-wire [127:0] debug_t_final = debug_ghash_final ^ debug_aes_final; 
 endmodule

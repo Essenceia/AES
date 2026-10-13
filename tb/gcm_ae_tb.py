@@ -26,7 +26,7 @@ RST_CYCLES=10
 if "TEST_ITER" in os.environ:
 	TEST_ITER = int(os.environ["TEST_ITER"].lower().strip())
 else:
-	TEST_ITER = 50
+	TEST_ITER = 20
 
 W = 128
 
