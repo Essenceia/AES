@@ -149,7 +149,7 @@ always @(posedge clk) begin
 	if (~rst_n) fsm_q <= FSM_IDLE; 
 	else case (fsm_q)
 		FSM_IDLE:     fsm_q <= init_i ? FSM_A: FSM_IDLE; 
-		FSM_A:        fsm_q <= (data_v_i & data_enc_i)? FSM_C : 
+		FSM_A:        fsm_q <= (data_v_i & data_enc_early_i)? FSM_C : 
 					           pkt_end ? FSM_ICV_CALC: FSM_A; 
 		FSM_C:        fsm_q <= pkt_end ? FSM_ICV_CALC: FSM_C; 
 		FSM_ICV_CALC: fsm_q <= gh_res_v & (fsm_gh_q == FSM_GHASH_RES) ? FSM_ICV: FSM_ICV_CALC; 
@@ -388,9 +388,9 @@ ghash #(.SRAM_W(SRAM_W), .PHY_W(PHY_W)) m_ghash(
 // data pipe 
 wire [PHY_W-1:0] data; // next data
 
-assign data = tag_v ? gh_res : data_i;
+assign data         = tag_v ? gh_res : data_i;
 assign data_xor_aes = data ^ aes_hash_q[PHY_W-1:0]; 
-assign res_next = fsm_q == FSM_A ? data : data_xor_aes;
+assign res_next     = fsm_q == FSM_A ? data : data_xor_aes;
 
 wire [PHY_W-1:0] debug_aes_xor; 
 assign debug_aes_xor = aes_hash_q[PHY_W-1:0]; 
