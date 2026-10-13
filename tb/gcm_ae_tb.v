@@ -33,6 +33,7 @@ wire              gcm_rx_enc;
 wire              gcm_rx_enc_early; 
 wire [PHY_W-1:0]  gcm_rx;
 wire              gcm_rx_last; 
+wire              gcm_rx_first; 
 
 wire              gcm_tx_v; 
 wire              gcm_tx_start; 
@@ -57,6 +58,7 @@ gcm_ae m_gcm_ae(
 .data_enc_early_i(gcm_rx_enc_early),
 .data_enc_i      (gcm_rx_enc),
 .data_i          (gcm_rx), 
+.data_first_i    (gcm_rx_first),
 .data_last_i     (gcm_rx_last),
 
 

@@ -19,6 +19,7 @@ def set_invalid(dut):
 	dut.gcm_sram_h.value = "X"
 	dut.gcm_sram.value = "X"*16
 	dut.gcm_rx_v.value = 0	
+	dut.gcm_rx_first.value = "X"
 	dut.gcm_rx_enc.value = "X"
 	dut.gcm_rx_enc_early.value = "X"
 	dut.gcm_rx_last.value = "X"
@@ -73,6 +74,7 @@ async def set_data(dut, data:bytearray, a_l:int):
 		if i % 4 == 0: 
 			b = data[int(i/4)]  
 		dut.gcm_rx.value =0x3 & (b >> (i%4)*2)
+		dut.gcm_rx_first.value = 1 if i == 0 else 0 
 		dut.gcm_rx_last.value = 1 if i == 4*l-1 else 0 
 		dut.gcm_rx_enc_early.value = 1 if i in range(a_l*4-1, l*4-1) else 0
 		dut.gcm_rx_enc.value = 1 if i in range(a_l*4, l*4) else 0
@@ -80,6 +82,7 @@ async def set_data(dut, data:bytearray, a_l:int):
 	dut.gcm_rx_v.value = 0 
 	dut.gcm_rx_enc_early.value = "X"
 	dut.gcm_rx_enc.value = "X"
+	dut.gcm_rx_first.value = "X"
 	dut.gcm_rx_last.value = "X"
 	dut.gcm_rx.value = "X"*2
 	cocotb.log.info("set_data finished") 	

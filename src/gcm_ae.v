@@ -28,6 +28,7 @@ module gcm_ae #(
 	input wire                   data_enc_early_i, // align with behavior of last
 	input wire                   data_enc_i, // encrypt incoming data
 	input wire                   data_last_i, 
+	input wire                   data_first_i, 
 	input wire [PHY_W-1:0]       data_i, 
 	// TX Eth
 	output wire                  data_v_o, 
@@ -93,11 +94,11 @@ wire [B_CNT_W-1:0] b_cnt_next;
 reg  [B_CNT_W-1:0] tag_cnt_q; 
 wire b_cnt_rst; 
 
-assign b_cnt_rst  = init_i | ((fsm_q == FSM_A) & data_v_i & data_enc_i); // rst block cnt when switching from A->C
+assign b_cnt_rst  = data_v_i & (((fsm_q == FSM_A) & data_enc_i) | data_first_i); 
 assign b_cnt_next = b_cnt_q + {{B_CNT_W-1{1'b0}}, 1'b1};
 
 always @(posedge clk) 
-	if (b_cnt_rst) b_cnt_q <= {B_CNT_W{1'b0}};
+	if (b_cnt_rst) b_cnt_q <= {{B_CNT_W-1{1'b0}}, 1'b1};
 	else if (data_v_i) b_cnt_q <= b_cnt_next;
 
 assign a_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_A) & data_v_i & ~data_enc_i; 
@@ -274,9 +275,9 @@ always @(posedge clk) begin
 						                   FSM_GHASH_HASH_A_PAD;
 		FSM_GHASH_HASH_A_PAD: fsm_gh_q <= ~gh_active & gh_buff_a_shift_done ? (fsm_gh_c_next_q ? FSM_GHASH_HASH_C: FSM_GHASH_HASH_L) :
 							  		       FSM_GHASH_HASH_A_PAD; 
-		FSM_GHASH_HASH_C:     fsm_gh_q <= (data_last_i | pkt_end_q)? ((b_cnt_q == B_CNT_MAX_MIN1) ? FSM_GHASH_HASH_L : FSM_GHASH_HASH_C_PAD) :
+		FSM_GHASH_HASH_C:     fsm_gh_q <=  data_last_i ? ((b_cnt_q == B_CNT_MAX_MIN1) ? FSM_GHASH_HASH_L : FSM_GHASH_HASH_C_PAD) :
 							  			   FSM_GHASH_HASH_C;
-		FSM_GHASH_HASH_C_PAD: fsm_gh_q <= ~gh_active ? FSM_GHASH_HASH_L: FSM_GHASH_HASH_C_PAD; 
+		FSM_GHASH_HASH_C_PAD: fsm_gh_q <= ~gh_active & gh_buff_c_shift_done ? FSM_GHASH_HASH_L: FSM_GHASH_HASH_C_PAD; 
 		FSM_GHASH_HASH_L:     fsm_gh_q <= ~gh_active & ~gh_block_aligned_q? FSM_GHASH_RES:  FSM_GHASH_HASH_L;
 		FSM_GHASH_RES:        fsm_gh_q <=  gh_res_v? FSM_GHASH_IDLE: FSM_GHASH_RES;  
 		default:              fsm_gh_q <=  FSM_GHASH_IDLE;  
@@ -350,19 +351,16 @@ assign gh_buff_a_rst = (fsm_q == FSM_A) & ~|b_cnt_q // A block start, even if A 
 always @(posedge clk) 
 	if (gh_buff_a_rst)  gh_buff_a_q <= gh_buff_a_rst_next; // A data guaranties 4 cycles minumum so it will be set for A
 	else if (data_v_i & ~data_enc_i) gh_buff_a_q <= gh_buff_a_next; // do not shift on L
-	else if ((fsm_gh_q == FSM_GHASH_HASH_A_PAD) & ~gh_buff_a_shift_done) gh_buff_a_q <= {{8{1'b0}}, gh_buff_a_q[W-1:8]}; // we have at least a 32 cycle gap while previous buff is being calculated to perform the shift 
-
-wire debug_gh_buff_a_shift = ((fsm_gh_q == FSM_GHASH_HASH_A_PAD) & ~gh_buff_a_shift_done); 
+	else if ((fsm_gh_q == FSM_GHASH_HASH_A_PAD) & ~gh_buff_a_shift_done) gh_buff_a_q <= {{8{1'b0}}, gh_buff_a_q[W-1:8]}; 
 
 // C gh buffer
-assign gh_buff_c_rst = (fsm_q == FSM_C) & ~|b_cnt_q; 
 always @(posedge clk) 
-	if (gh_buff_c_rst) gh_buff_c_q <= {data_xor_aes,{W-PHY_W{1'b0}}};
-	else if (data_v_i & data_enc_i) gh_buff_c_q <= {data_xor_aes, gh_buff_c_q[W-1:PHY_W]};
+	if (data_v_i & data_enc_i) gh_buff_c_q <= {data_xor_aes, gh_buff_c_q[W-1:PHY_W]};
+	else if ((fsm_gh_q == FSM_GHASH_HASH_C_PAD) & ~gh_buff_c_shift_done) gh_buff_c_q <= {{8{1'b0}}, gh_buff_c_q[W-1:8]}; 
 
 wire [W-1:0] gh_data; 
 wire [W-1:0] gh_data_swap; 
-assign gh_data = (fsm_gh_q == FSM_GHASH_HASH_C) ? gh_buff_c_q : gh_buff_a_q;
+assign gh_data = (fsm_gh_q == FSM_GHASH_HASH_C | fsm_gh_q == FSM_GHASH_HASH_C_PAD) ? gh_buff_c_q : gh_buff_a_q;
 
 byteswap #(.W(W/8)) m_gh_byteswap(
 	.i(gh_data), 
