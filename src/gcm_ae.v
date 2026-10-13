@@ -204,9 +204,8 @@ wire [W-1:0] aes_res;
 wire [W-1:0] aes_res_swap; 
 reg          aes_hash_v_q;  
 
-assign aes_hash_set = (b_cnt_q == B_CNT_MAX_MIN2 & fsm_q == FSM_C)
-					| (aes_res_v & fsm_q == FSM_A & ~aes_hash_v_q)
-					| (aes_res_v & fsm_q == FSM_ICV_CALC & ~aes_hash_v_q); 
+assign aes_hash_set = (b_cnt_q == B_CNT_MAX_MIN2 &  fsm_q == FSM_C)
+					| (aes_res_v & ~aes_hash_v_q & (fsm_q == FSM_A | fsm_q == FSM_ICV_CALC)); 
 
 always @(posedge clk) // reset aes_res_v only after having sent tag calculation
 	aes_force_tag_q <= aes_force_tag; 
@@ -288,9 +287,9 @@ clean to 0s when we trigger a partial block hash */
 wire         gh_start; 
  
 // A, L buffers
-wire         gh_buff_rst; 
-reg  [W-1:0] gh_buff_q;  
-wire [W-1:0] gh_buff_rst_next; 
+wire         gh_buff_a_rst; 
+reg  [W-1:0] gh_buff_a_q;  
+wire [W-1:0] gh_buff_a_rst_next; 
 // C buffers 
 wire          gh_buff_c_rst; 
 reg  [W-1:0]  gh_buff_c_q; 
@@ -315,10 +314,10 @@ assign gh_buff_c_shift_done = gh_buff_c_shift_q == SHIFT_CNT_MAX;
 
 always @(posedge clk) 
 	if (fsm_gh_q == FSM_GHASH_HASH_A) gh_buff_a_shift_q <= b_cnt_q[B_CNT_W-1:2];
-	else if (~gh_buff_a_shift_done) gh_buff_a_shift_q <= gh_buff_a_shift_q + {{SHIFT_CNT_W-1{1'b0}}, 1'b1};
+	else if (~gh_buff_a_shift_done)   gh_buff_a_shift_q <= gh_buff_a_shift_q + {{SHIFT_CNT_W-1{1'b0}}, 1'b1};
 always @(posedge clk) 
 	if (fsm_gh_q == FSM_GHASH_HASH_C) gh_buff_c_shift_q <= b_cnt_q[B_CNT_W-1:2];
-	else if (~gh_buff_c_shift_done) gh_buff_c_shift_q <= gh_buff_c_shift_q + {{SHIFT_CNT_W-1{1'b0}}, 1'b1};
+	else if (~gh_buff_c_shift_done)   gh_buff_c_shift_q <= gh_buff_c_shift_q + {{SHIFT_CNT_W-1{1'b0}}, 1'b1};
 
 // L
 localparam GHASH_BLOCK_CNT_W = 64;
@@ -334,23 +333,25 @@ byteswap #(.W(W/8)) m_gh_l_byteswap(
 	.o(gh_buff_l_swap));
 
 // A, L gh buffer
-wire [W-1:0] gh_buff_rst_next_data; // iverilog bugs
-wire [W-1:0] gh_buff_next; 
+wire [W-1:0] gh_buff_a_rst_next_data; // iverilog bugs
+wire [W-1:0] gh_buff_a_next; 
  
-assign gh_buff_rst_next_data[W-1-:PHY_W]  = data_i;
-assign gh_buff_rst_next_data[W-PHY_W-1:0] = {W-PHY_W{1'bx}};
-assign gh_buff_rst_next = (fsm_gh_q == FSM_GHASH_HASH_L) ? gh_buff_l_swap: gh_buff_rst_next_data; 
+assign gh_buff_a_rst_next_data[W-1-:PHY_W]  = data_i;
+assign gh_buff_a_rst_next_data[W-PHY_W-1:0] = {W-PHY_W{1'bx}};
+assign gh_buff_a_rst_next = (fsm_gh_q == FSM_GHASH_HASH_L) ? gh_buff_l_swap: gh_buff_a_rst_next_data; 
 
-assign gh_buff_next[W-1-:PHY_W]  = data_i; 
-assign gh_buff_next[W-PHY_W-1:0] = gh_buff_q[W-1:PHY_W];
+assign gh_buff_a_next[W-1-:PHY_W]  = data_i; 
+assign gh_buff_a_next[W-PHY_W-1:0] = gh_buff_a_q[W-1:PHY_W];
 
-assign gh_buff_rst = (fsm_q == FSM_A) & ~|b_cnt_q // A block start, even if A is guarantied to be at least 16B on init, this allows us to do zero append 
-				   | (fsm_gh_q == FSM_GHASH_HASH_L); 
+assign gh_buff_a_rst = (fsm_q == FSM_A) & ~|b_cnt_q // A block start, even if A is guarantied to be at least 16B on init, this allows us to do zero append 
+				     | (fsm_gh_q == FSM_GHASH_HASH_L); 
 
 always @(posedge clk) 
-	if (gh_buff_rst)  gh_buff_q <= gh_buff_rst_next; // A data guaranties 4 cycles minumum so it will be set for A
-	else if (data_v_i & ~data_enc_i) gh_buff_q <= gh_buff_next; // do not shift on L
-	else if ((fsm_gh_q == FSM_GHASH_HASH_A_PAD) & (gh_buff_a_shift_q!= SHIFT_CNT_MAX)) gh_buff_q <= {{8{1'b0}}, gh_buff_q[W-1:8]}; // we have at least a 32 cycle gap while previous buff is being calculated to perform the shift 
+	if (gh_buff_a_rst)  gh_buff_a_q <= gh_buff_a_rst_next; // A data guaranties 4 cycles minumum so it will be set for A
+	else if (data_v_i & ~data_enc_i) gh_buff_a_q <= gh_buff_a_next; // do not shift on L
+	else if ((fsm_gh_q == FSM_GHASH_HASH_A_PAD) & ~gh_buff_a_shift_done) gh_buff_a_q <= {{8{1'b0}}, gh_buff_a_q[W-1:8]}; // we have at least a 32 cycle gap while previous buff is being calculated to perform the shift 
+
+wire debug_gh_buff_a_shift = ((fsm_gh_q == FSM_GHASH_HASH_A_PAD) & ~gh_buff_a_shift_done); 
 
 // C gh buffer
 assign gh_buff_c_rst = (fsm_q == FSM_C) & ~|b_cnt_q; 
@@ -360,7 +361,7 @@ always @(posedge clk)
 
 wire [W-1:0] gh_data; 
 wire [W-1:0] gh_data_swap; 
-assign gh_data = (fsm_gh_q == FSM_GHASH_HASH_C) ? gh_buff_c_q : gh_buff_q;
+assign gh_data = (fsm_gh_q == FSM_GHASH_HASH_C) ? gh_buff_c_q : gh_buff_a_q;
 
 byteswap #(.W(W/8)) m_gh_byteswap(
 	.i(gh_data), 
