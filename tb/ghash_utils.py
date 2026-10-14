@@ -37,10 +37,10 @@ def __ghash_gf_multiply(x: int, y: int) -> int:
 			v = v >> 1
 		cocotb.log.debug(f"{128-i} z {z:#0{34}x} v {v:#0{34}x}")
 
-	cocotb.log.debug(f"GHASH block result z {z:#0{34}x}")
+	cocotb.log.debug(f"block result z {z:#0{34}x}")
 	return z
 
-def __ghash(h_key: bytes, payload: bytes) -> bytes:
+def ghash(h_key: bytes, payload: bytes) -> bytes:
 	assert len(payload) % 16 == 0, f"expencted length payload to be a multiple of 16 got {len(payload)}"
 	assert len(h_key) == 16, f"expencted length key of 16 got {len(h_key)}"
 	
@@ -51,6 +51,7 @@ def __ghash(h_key: bytes, payload: bytes) -> bytes:
 		block = int.from_bytes(payload[i:i+16], 'big')
 		tag_accum ^= block
 		tag_accum = __ghash_gf_multiply(tag_accum, h_int)
+		cocotb.log.info(f"ghash Result: 0x{tag_accum.to_bytes(16, 'big').hex()} (inputs H:0x{h_key.hex()} Block:0x{payload[i:i+16].hex()})")
 		
 	return tag_accum.to_bytes(16, 'big')
 
@@ -147,7 +148,7 @@ async def hash(dut,
 
 	assert timeout < max_timeout, "timeout reached without res_v"
 
-	ghash_expected = __ghash(key, data) 
+	ghash_expected = ghash(key, data) 
 	cocotb.log.info(f"ghash result gotten 0x{res.hex()}") 
 	cocotb.log.debug(f"expected 0x{ghash_expected.hex()}\ngotten   0x{res.hex()}") 
 	assert res == ghash_expected, f"cipher result missmatch\nexpected 0x{ghash_expected.hex()}\ngotten   0x{res.hex()}"

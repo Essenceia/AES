@@ -359,9 +359,17 @@ always @(posedge clk)
 	else if ((fsm_gh_q == FSM_GHASH_HASH_A_PAD) & ~gh_buff_a_shift_done) gh_buff_a_q <= {{8{1'b0}}, gh_buff_a_q[W-1:8]}; 
 
 // C gh buffer
+wire          gh_buff_c_en; 
+wire          gh_buff_c_shift; 
+reg  [W-1:0]  gh_buff_c_next;
+
+assign gh_buff_c_en    = fsm_q == FSM_C; 
+assign gh_buff_c_shift = fsm_gh_q == FSM_GHASH_HASH_A_PAD & ~gh_buff_c_shift_done; 
+assign gh_buff_c_next  = {data_xor_aes, gh_buff_c_q[W-1:PHY_W]};
+
 always @(posedge clk) 
-	if (data_v_i & data_enc_i) gh_buff_c_q <= {data_xor_aes, gh_buff_c_q[W-1:PHY_W]};
-	else if ((fsm_gh_q == FSM_GHASH_HASH_C_PAD) & ~gh_buff_c_shift_done) gh_buff_c_q <= {{8{1'b0}}, gh_buff_c_q[W-1:8]}; 
+	if (gh_buff_c_en) gh_buff_c_q <= gh_buff_c_next;
+	else if (gh_buff_c_shift) gh_buff_c_q <= {{8{1'b0}}, gh_buff_c_q[W-1:8]}; 
 
 wire [W-1:0] gh_data; 
 wire [W-1:0] gh_data_swap; 

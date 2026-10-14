@@ -3,6 +3,8 @@ from sram import sram_config
 import cocotb
 from cocotb.triggers import ClockCycles 
 
+from ghash_utils import ghash 
+
 import Crypto
 from Crypto.Cipher import AES
 
@@ -159,6 +161,22 @@ def check_result(plain: bytearray, config:sram_config, a_l:int, result:bytearray
 		for i in range(len(exp_t)): 
 			tag_ghash[i] = tag_aes[i] ^ exp_t[i]
 		cocotb.log.error(f"\nexp tag aes: 0x{tag_aes.hex()}\nexp tag gh:  0x{tag_ghash.hex()}")
-	
+
+		# calculate ghash internal state
+		H = inner_aes.encrypt(bytearray(16))
+		gh_payload = plain[0:a_l] 
+		if a_l % 16 != 0: 
+			gh_payload += bytearray(16 - (a_l % 16))
+		gh_payload += exp_c
+		exp_c_l = len(exp_c)
+		if exp_c_l % 16 != 0: 
+			gh_payload += bytearray(16 - (exp_c_l % 16))
+		tmp = a_l*8
+		gh_payload += tmp.to_bytes(8, 'big')
+		tmp = exp_c_l*8
+		gh_payload += tmp.to_bytes(8, 'big')
+		check_ghash_tag = ghash(h_key = H, payload = gh_payload)
+		assert check_ghash_tag == tag_ghash, f"Missmatch in ghash result for backplay"
+		
 	assert match, "missmatch between expected and gotten"
 		
