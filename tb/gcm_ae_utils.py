@@ -100,7 +100,7 @@ async def read_data(dut):
 			tmp = int(dut.gcm_tx.value)
 			b = b | (tmp << 2*(i%4)) 
 			if i % 4 == 3:
-				cocotb.log.info(f"{int(i/4)} {hex(b)}") 
+				cocotb.log.debug(f"{int(i/4)} {hex(b)}") 
 				res.append(b) 
 				b = 0	
 			i = i + 1
