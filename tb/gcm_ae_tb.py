@@ -102,4 +102,17 @@ async def encypt_test_vector(dut):
 	data = A + P 
 	await gcm_ae_utils.send_data_check_result(dut=dut, data=data, config=conf, a_l=a_l)
 
+@cocotb.test()
+async def encrypt_random(dut): 
+	set_random_seed()
+	await rst(dut)
+	for _ in range(TEST_ITER):
+		conf = create_random_config()
+		a_l = random.randrange(14, 80)
+		c_l = random.randrange(1, 40)
+		A = random.randbytes(a_l)
+		C = random.randbytes(c_l)
+		data = A + C
+		await gcm_ae_utils.send_data_check_result(dut=dut, data=data, config=conf, a_l=a_l)
+
  
