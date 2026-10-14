@@ -95,17 +95,21 @@ wire a_cnt_msb_en;
 reg  [B_CNT_W-1:0] b_cnt_q; 
 wire [B_CNT_W-1:0] b_cnt_next; 
 reg  [B_CNT_W-1:0] tag_cnt_q; 
-wire b_cnt_rst; 
+wire               b_cnt_rst; 
 
-assign b_cnt_rst  = data_v_i & (((fsm_q == FSM_A) & data_enc_i) | data_first_i); 
+reg                c_first_q; 
+always @(posedge clk) 
+	c_first_q <= (fsm_q == FSM_A) & data_v_i & data_enc_early_i; 
+
+assign b_cnt_rst  = (data_v_i & data_first_i) | c_first_q; 
 assign b_cnt_next = b_cnt_q + {{B_CNT_W-1{1'b0}}, 1'b1};
 
 always @(posedge clk) 
 	if (b_cnt_rst) b_cnt_q <= {{B_CNT_W-1{1'b0}}, 1'b1};
 	else if (data_v_i) b_cnt_q <= b_cnt_next;
 
-assign a_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_A) & data_v_i & ~data_enc_i; 
-assign c_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_C) & data_v_i; 
+assign a_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_A) & data_v_i; 
+assign c_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_C); 
 
 always @(posedge clk) 
 	if (init_i) c_cnt_msb_q <= {C_CNT_W{1'b0}}; 
@@ -209,7 +213,7 @@ wire [W-1:0] aes_res;
 wire [W-1:0] aes_res_swap; 
 reg          aes_hash_v_q;  
 
-assign aes_hash_set = (b_cnt_q == B_CNT_MAX_MIN2 &  fsm_q == FSM_C)
+assign aes_hash_set = (b_cnt_q == B_CNT_MAX_MIN1 &  fsm_q == FSM_C)
 					| (aes_res_v & ~aes_hash_v_q & (fsm_q == FSM_A | fsm_q == FSM_ICV_CALC)); 
 
 always @(posedge clk) // reset aes_res_v only after having sent tag calculation
