@@ -68,10 +68,10 @@ async def set_data(dut, data:bytearray, a_l:int):
 	l = len(data)
 	assert(a_l <= l)
 	assert(l >= 14)
-	cocotb.log.info(f"data 0x{data.hex()} A_length={a_l}")
+	cocotb.log.info(f"data 0x{data.hex()} A_length={a_l} ({a_l*8}b), C_length={l - a_l} ({(l-a_l)*8}b)")
 	for i in range(0, l*4): 
 		dut.gcm_rx_v.value = 1 
-		if i % 4 == 0: 
+		if i % 4 == 0:
 			b = data[int(i/4)]  
 		dut.gcm_rx.value =0x3 & (b >> (i%4)*2)
 		dut.gcm_rx_first.value = 1 if i == 0 else 0 
@@ -124,7 +124,7 @@ async def send_data_check_result(dut, data: bytearray, config:sram_config, a_l:i
 
 def check_result(plain: bytearray, config:sram_config, a_l:int, result:bytearray):
 	assert (len(plain) + 16) == len(result), f"length of reults is expact to be 16 longer than length of original expected {len(plain)+16} got {len(result)}" 
-	fail = False	
+	match = True	
 
 	cipher = AES.new(config.k, AES.MODE_GCM, nonce=config.get_iv())
 	cipher.update(plain[0:a_l])
@@ -137,18 +137,18 @@ def check_result(plain: bytearray, config:sram_config, a_l:int, result:bytearray
 	exp_p = plain[:a_l]
 	if got_p != exp_p: 
 		cocotb.log.error(f"missmatch plain\n\tgot: 0x{got_p.hex()}\n\texp: 0x{exp_p.hex()}")
-		fail = True
+		match = False
 
 	l = len(plain)
 	got_c = result[a_l:l]
 	if got_c != exp_c: 
 		cocotb.log.error(f"missmatch C\n\tgot: 0x{got_c.hex()}\n\texp: 0x{exp_c.hex()}")
-		fail = True
+		match = False
 
 	got_t = result[-16:]
 	if got_t != exp_t:
-		cocotb.log.error(f"missmatch tag\n\tgot: 0x{got_t.hex()}\nexp: 0x{exp_t.hex()}")
-		fail = True
+		cocotb.log.error(f"missmatch tag\n\tgot: 0x{got_t.hex()}\n\texp: 0x{exp_t.hex()}")
+		match = False
 		# calculate inner aes
 		J0 = config.get_iv() + b'\x00\x00\x00\x01'
 		assert(len(J0) == 16)
@@ -160,6 +160,5 @@ def check_result(plain: bytearray, config:sram_config, a_l:int, result:bytearray
 			tag_ghash[i] = tag_aes[i] ^ exp_t[i]
 		cocotb.log.error(f"\nexp tag aes: 0x{tag_aes.hex()}\nexp tag gh:  0x{tag_ghash.hex()}")
 	
-	if fail:
-		assert(0)
+	assert match, "missmatch between expected and gotten"
 		
