@@ -369,11 +369,15 @@ assign gh_buff_c_next  = {data_xor_aes, gh_buff_c_q[W-1:PHY_W]};
 
 always @(posedge clk) 
 	if (gh_buff_c_en) gh_buff_c_q <= gh_buff_c_next;
-	else if (gh_buff_c_shift) gh_buff_c_q <= {{8{1'b0}}, gh_buff_c_q[W-1:8]}; 
+	else if ((fsm_gh_q == FSM_GHASH_HASH_C_PAD) & ~gh_buff_c_shift_done) gh_buff_c_q <= {{8{1'b0}}, gh_buff_c_q[W-1:8]}; 
 
 wire [W-1:0] gh_data; 
-wire [W-1:0] gh_data_swap; 
-assign gh_data = (fsm_gh_q == FSM_GHASH_HASH_C | fsm_gh_q == FSM_GHASH_HASH_C_PAD) ? gh_buff_c_q : gh_buff_a_q;
+wire [W-1:0] gh_data_swap;
+reg          fsm_ghash_hash_c_q; 
+always @(posedge clk) 
+	fsm_ghash_hash_c_q <= fsm_gh_q == FSM_GHASH_HASH_C; 
+ 
+assign gh_data = (fsm_ghash_hash_c_q | fsm_gh_q == FSM_GHASH_HASH_C_PAD) ? gh_buff_c_q : gh_buff_a_q;
 
 byteswap #(.W(W/8)) m_gh_byteswap(
 	.i(gh_data), 
