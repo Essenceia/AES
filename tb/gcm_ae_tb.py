@@ -115,4 +115,17 @@ async def encrypt_random(dut):
 		data = A + C
 		await gcm_ae_utils.send_data_check_result(dut=dut, data=data, config=conf, a_l=a_l)
 
- 
+@cocotb.test()
+async def encrypt_fail_target(dut): 
+	set_random_seed()
+	await rst(dut)
+	for _ in range(TEST_ITER):
+		conf = create_random_config()
+		a_l = 17
+		c_l = 2
+		A = random.randbytes(a_l)
+		C = random.randbytes(c_l)
+		data = A + C
+		await gcm_ae_utils.send_data_check_result(dut=dut, data=data, config=conf, a_l=a_l)
+
+  
