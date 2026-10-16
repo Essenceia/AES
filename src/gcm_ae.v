@@ -100,7 +100,7 @@ wire               b_cnt_rst;
 
 reg                c_first_q; 
 always @(posedge clk) 
-	c_first_q <= (fsm_q == FSM_A) & data_v_i & data_enc_early_i; 
+	c_first_q <= (fsm_q == FSM_A) & data_enc_early_i; 
 
 assign b_cnt_rst  = (data_v_i & data_first_i) | c_first_q; 
 assign b_cnt_next = b_cnt_q + {{B_CNT_W-1{1'b0}}, 1'b1};
@@ -109,7 +109,7 @@ always @(posedge clk)
 	if (b_cnt_rst) b_cnt_q <= {{B_CNT_W-1{1'b0}}, 1'b1};
 	else if (data_v_i) b_cnt_q <= b_cnt_next;
 
-assign a_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_A) & data_v_i; 
+assign a_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_A); 
 assign c_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_C); 
 
 always @(posedge clk) 
@@ -132,12 +132,12 @@ reg [B_CNT_W-1:2] c_cnt_lsb_q;
 wire c_cnt_lsb_en; 
 wire a_cnt_lsb_en; 
 
-assign c_cnt_lsb_en = (fsm_q == FSM_C) & data_v_i & data_last_i; 
+assign c_cnt_lsb_en = (fsm_q == FSM_C) & data_last_i; 
 always @(posedge clk)
 	if (data_first_early_v_i) c_cnt_lsb_q <= {B_CNT_W-2{1'b0}}; // need to rst since there might not be any C in pkt
 	else if (c_cnt_lsb_en) c_cnt_lsb_q <= b_cnt_next[B_CNT_W-1:2]; 
 
-assign a_cnt_lsb_en = (fsm_q == FSM_A) & data_v_i & (data_enc_early_i | data_last_i); 
+assign a_cnt_lsb_en = (fsm_q == FSM_A) & (data_enc_early_i | data_last_i); 
 always @(posedge clk)
 	if (a_cnt_lsb_en) a_cnt_lsb_q <= b_cnt_next[B_CNT_W-1:2];  
 
@@ -157,7 +157,7 @@ always @(posedge clk) begin
 	if (~rst_n) fsm_q <= FSM_IDLE; 
 	else case (fsm_q)
 		FSM_IDLE:     fsm_q <= data_first_early_v_i ? FSM_A: FSM_IDLE; 
-		FSM_A:        fsm_q <= (data_v_i & data_enc_early_i)? FSM_C : 
+		FSM_A:        fsm_q <= data_enc_early_i? FSM_C : 
 					           pkt_end ? FSM_ICV_CALC: FSM_A; 
 		FSM_C:        fsm_q <= pkt_end ? FSM_ICV_CALC: FSM_C; 
 		FSM_ICV_CALC: fsm_q <= gh_res_v & (fsm_gh_q == FSM_GHASH_RES) ? FSM_ICV: FSM_ICV_CALC; 
@@ -267,7 +267,7 @@ reg              gh_block_aligned_q;
 
 always @(posedge clk) 
 	if (data_first_early_v_i | (fsm_gh_q == FSM_GHASH_HASH_C)) fsm_gh_c_next_q <= 1'b0; 
-	else fsm_gh_c_next_q <= fsm_gh_c_next_q | (data_v_i & data_enc_i);
+	else fsm_gh_c_next_q <= fsm_gh_c_next_q | (fsm_q == FSM_C);
 
 always @(posedge clk) // a direct transition to L is only possible for a perfectly aligned block  
 	gh_block_aligned_q <= (fsm_gh_q == FSM_GHASH_HASH_A) | (fsm_gh_q == FSM_GHASH_HASH_C); 
@@ -355,7 +355,7 @@ assign gh_buff_a_next[W-PHY_W-1:0] = gh_buff_a_q[W-1:PHY_W];
 
 assign gh_buff_a_rst   = (fsm_q == FSM_A) & ~|b_cnt_q // A block start, even if A is guarantied to be at least 16B on init, this allows us to do zero append 
 				       | (fsm_gh_q == FSM_GHASH_HASH_L); 
-assign gh_buff_a_en    = data_v_i & ~data_enc_i; // TODO optimize fsm_q == A 
+assign gh_buff_a_en    = fsm_q == FSM_A; // TODO optimize fsm_q == A 
 assign gh_buff_a_shift = (fsm_gh_q == FSM_GHASH_HASH_A_PAD) & ~gh_buff_a_shift_done; 
 
 always @(posedge clk) 
