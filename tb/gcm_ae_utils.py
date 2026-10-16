@@ -13,7 +13,6 @@ import random
 TIMEOUT = 2000
 
 def set_invalid(dut): 
-	dut.gcm_init.value = 0 
 	dut.gcm_pn.value = "X" * 32
 	dut.gcm_sci.value = "X" * 64
 	dut.gcm_sram_v.value = 0 
@@ -21,6 +20,7 @@ def set_invalid(dut):
 	dut.gcm_sram_h.value = "X"
 	dut.gcm_sram.value = "X"*16
 	dut.gcm_rx_v.value = 0	
+	dut.gcm_rx_first_early_v.value = 0
 	dut.gcm_rx_first.value = "X"
 	dut.gcm_rx_enc.value = "X"
 	dut.gcm_rx_enc_early.value = "X"
@@ -60,9 +60,6 @@ async def wr_sram_config(dut, conf: sram_config):
 	cocotb.log.info("config wr finished") 	
 
 async def set_config(dut, conf: sram_config): 
-	dut.gcm_init.value = 1
-	await ClockCycles(dut.clk, 1) 
-	dut.gcm_init.value = 0
 	await wr_sram_config(dut, conf) 
 
 # assuming no bubble in data 
@@ -71,6 +68,9 @@ async def set_data(dut, data:bytearray, a_l:int):
 	assert(a_l <= l)
 	assert(l >= 14)
 	cocotb.log.info(f"data 0x{data.hex()} A_length={a_l} ({a_l*8}b), C_length={l - a_l} ({(l-a_l)*8}b)")
+	dut.gcm_rx_first_early_v.value = 1 
+	await ClockCycles(dut.clk, 1) 
+	dut.gcm_rx_first_early_v.value = 0 
 	for i in range(0, l*4): 
 		dut.gcm_rx_v.value = 1 
 		if i % 4 == 0:
@@ -114,10 +114,10 @@ async def read_data(dut):
 async def send_data_check_result(dut, data: bytearray, config:sram_config, a_l:int): 
 
 	# trigger threads at the time 	
-	conf = cocotb.start_soon(set_config(dut, config))
 	rd = cocotb.start_soon(read_data(dut))
-	await ClockCycles(dut.clk, 1) # wait for init cycle 
 	wr = cocotb.start_soon(set_data(dut, data, a_l)) 
+	await ClockCycles(dut.clk, 1) # wait for init cycle 
+	conf = cocotb.start_soon(set_config(dut, config))
 	await conf
 	await wr
 	result = await rd

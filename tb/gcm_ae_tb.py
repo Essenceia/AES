@@ -109,7 +109,7 @@ async def encrypt_random(dut):
 	for _ in range(TEST_ITER):
 		conf = create_random_config()
 		a_l = random.randrange(16, 80)
-		c_l = random.randrange(1, 50)
+		c_l = random.randrange(1, 80)
 		A = random.randbytes(a_l)
 		C = random.randbytes(c_l)
 		data = A + C

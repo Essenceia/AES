@@ -19,7 +19,8 @@ module gcm_ae #(
 	input wire clk, 
 	input wire rst_n, 
 	
-	input wire                   init_i, 
+	output wire                  active_v_o,
+	output wire                  sending_tag_v_o, 
 	
 	input wire                   sram_v_i,
 	input wire                   sram_k_i,
@@ -32,6 +33,7 @@ module gcm_ae #(
 	input wire                   data_enc_i, // encrypt incoming data
 	input wire                   data_last_i, 
 	input wire                   data_first_i, 
+	input wire                   data_first_early_v_i, 
 	input wire [PHY_W-1:0]       data_i, 
 	// TX Eth
 	output wire                  data_v_o, 
@@ -50,14 +52,14 @@ localparam FSM_ICV_CALC = 3'd3;
 localparam FSM_ICV      = 3'd4; 
 reg [2:0] fsm_q; 
 
-localparam FSM_GHASH_IDLE          = 3'd0; 
-localparam FSM_GHASH_LD_H          = 3'd1; 
-localparam FSM_GHASH_HASH_A        = 3'd2; // authentification data
-localparam FSM_GHASH_HASH_A_PAD    = 3'd3; // authentification data
-localparam FSM_GHASH_HASH_C        = 3'd4; // ciphered data
-localparam FSM_GHASH_HASH_C_PAD    = 3'd5; // ciphered data
-localparam FSM_GHASH_HASH_L        = 3'd6; // lengths
-localparam FSM_GHASH_RES           = 3'd7;
+localparam FSM_GHASH_IDLE       = 3'd0; 
+localparam FSM_GHASH_LD_H       = 3'd1; 
+localparam FSM_GHASH_HASH_A     = 3'd2; // authentification data
+localparam FSM_GHASH_HASH_A_PAD = 3'd3; // authentification data
+localparam FSM_GHASH_HASH_C     = 3'd4; // ciphered data
+localparam FSM_GHASH_HASH_C_PAD = 3'd5; // ciphered data
+localparam FSM_GHASH_HASH_L     = 3'd6; // lengths
+localparam FSM_GHASH_RES        = 3'd7;
 reg [2:0] fsm_gh_q;
 
 // aes common
@@ -76,10 +78,9 @@ always @(posedge clk)
 assign key_v = sram_v_i & sram_h_i; // H is after K
 
 localparam B_CNT_MAX = W/PHY_W;
-localparam B_CNT_W = $clog2(B_CNT_MAX); 
+localparam B_CNT_W   = $clog2(B_CNT_MAX); 
 /* verilator lint_off WIDTHTRUNC */
 localparam [B_CNT_W-1:0] B_CNT_MAX_MIN1 = B_CNT_MAX - 1; 
-localparam [B_CNT_W-1:0] B_CNT_MAX_MIN2 = B_CNT_MAX - 2; 
 /* verilator lint_on WIDTHTRUNC */
 
 // C block count, assuming a max of 16k Bytes
@@ -112,17 +113,17 @@ assign a_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_A) & data_v_i;
 assign c_cnt_msb_en = (b_cnt_q == B_CNT_MAX_MIN1) & (fsm_q == FSM_C); 
 
 always @(posedge clk) 
-	if (init_i) c_cnt_msb_q <= {C_CNT_W{1'b0}}; 
+	if (data_first_early_v_i) c_cnt_msb_q <= {C_CNT_W{1'b0}}; 
 	else if (c_cnt_msb_en) c_cnt_msb_q  <= c_cnt_msb_q + {{C_CNT_W-1{1'b0}}, 1'b1};
 
 always @(posedge clk) 
-	if (init_i) a_cnt_msb_q <= {A_CNT_W{1'b0}};
+	if (data_first_early_v_i) a_cnt_msb_q <= {A_CNT_W{1'b0}};
 	else if (a_cnt_msb_en) a_cnt_msb_q <= a_cnt_msb_q + {{A_CNT_W-1{1'b0}}, 1'b1};
 
 wire [1:0] iv_cnt_rst; 
 assign iv_cnt_rst = (fsm_q == FSM_ICV_CALC)? 2'd1: 2'd2;
 always @(posedge clk) 
-	if (init_i | (fsm_q == FSM_ICV_CALC)) iv_cnt_q <= {{C_CNT_W-2{1'b0}}, iv_cnt_rst}; 
+	if (data_first_early_v_i | (fsm_q == FSM_ICV_CALC)) iv_cnt_q <= {{C_CNT_W-2{1'b0}}, iv_cnt_rst}; 
 	else if (aes_res_v) iv_cnt_q <= iv_cnt_q + {{C_CNT_W-1{1'b0}}, 1'b1}; 
 
 // lsb
@@ -133,7 +134,7 @@ wire a_cnt_lsb_en;
 
 assign c_cnt_lsb_en = (fsm_q == FSM_C) & data_v_i & data_last_i; 
 always @(posedge clk)
-	if (init_i) c_cnt_lsb_q <= {B_CNT_W-2{1'b0}}; // need to rst since there might not be any C in pkt
+	if (data_first_early_v_i) c_cnt_lsb_q <= {B_CNT_W-2{1'b0}}; // need to rst since there might not be any C in pkt
 	else if (c_cnt_lsb_en) c_cnt_lsb_q <= b_cnt_next[B_CNT_W-1:2]; 
 
 assign a_cnt_lsb_en = (fsm_q == FSM_A) & data_v_i & (data_enc_early_i | data_last_i); 
@@ -155,7 +156,7 @@ assign pkt_end = data_v_i & data_last_i;
 always @(posedge clk) begin
 	if (~rst_n) fsm_q <= FSM_IDLE; 
 	else case (fsm_q)
-		FSM_IDLE:     fsm_q <= init_i ? FSM_A: FSM_IDLE; 
+		FSM_IDLE:     fsm_q <= data_first_early_v_i ? FSM_A: FSM_IDLE; 
 		FSM_A:        fsm_q <= (data_v_i & data_enc_early_i)? FSM_C : 
 					           pkt_end ? FSM_ICV_CALC: FSM_A; 
 		FSM_C:        fsm_q <= pkt_end ? FSM_ICV_CALC: FSM_C; 
@@ -185,7 +186,7 @@ reg [2:0] fsm_aes_q;
 wire aes_hash_set; 
 
 always @(posedge clk) begin
-	if (~rst_n | init_i) fsm_aes_q <= FSM_AES_IDLE; 
+	if (~rst_n | data_first_early_v_i) fsm_aes_q <= FSM_AES_IDLE; 
 	else case(fsm_aes_q) 
 		FSM_AES_IDLE:    fsm_aes_q <= key_v ? FSM_AES_LD_KEY : FSM_AES_IDLE;
 		FSM_AES_LD_KEY:  fsm_aes_q <= FSM_AES_LD_DATA; // load key
@@ -202,7 +203,7 @@ reg  pkt_end_q;
 wire pkt_finished; 
 reg  pkt_finished_q; // indicated whether we are calculating the aes for the tag or the plain text 
 always @(posedge clk) 
-	if (~rst_n | init_i) pkt_finished_q <= 1'b0; 
+	if (~rst_n | data_first_early_v_i) pkt_finished_q <= 1'b0; 
 	else pkt_finished_q <= pkt_finished_q | pkt_end; 
 
 assign pkt_finished = pkt_end | pkt_finished_q; 
@@ -220,7 +221,7 @@ assign aes_hash_set = (b_cnt_q == B_CNT_MAX_MIN1 &  fsm_q == FSM_C)
 					| (aes_res_v & ~aes_hash_v_q & (fsm_q == FSM_A | fsm_q == FSM_ICV_CALC)); 
 
 always @(posedge clk) 
-	if (init_i | pkt_end_q) aes_hash_v_q <= 1'b0;  
+	if (data_first_early_v_i | pkt_end_q) aes_hash_v_q <= 1'b0;  
 	else aes_hash_v_q <= aes_hash_v_q | aes_res_v; 
 
 assign aes_hash_shift = (data_v_i & data_enc_i) | tag_v; 
@@ -265,14 +266,14 @@ reg              gh_block_aligned_q;
 
 
 always @(posedge clk) 
-	if (init_i | (fsm_gh_q == FSM_GHASH_HASH_C)) fsm_gh_c_next_q <= 1'b0; 
+	if (data_first_early_v_i | (fsm_gh_q == FSM_GHASH_HASH_C)) fsm_gh_c_next_q <= 1'b0; 
 	else fsm_gh_c_next_q <= fsm_gh_c_next_q | (data_v_i & data_enc_i);
 
 always @(posedge clk) // a direct transition to L is only possible for a perfectly aligned block  
 	gh_block_aligned_q <= (fsm_gh_q == FSM_GHASH_HASH_A) | (fsm_gh_q == FSM_GHASH_HASH_C); 
  
 always @(posedge clk) begin
-	if (~rst_n) fsm_gh_q <= FSM_GHASH_IDLE; 
+	if (~rst_n | data_first_early_v_i) fsm_gh_q <= FSM_GHASH_IDLE; 
 	else case (fsm_gh_q) 
 		FSM_GHASH_IDLE:       fsm_gh_q <=  sram_v_i & sram_h_i ? FSM_GHASH_LD_H:   FSM_GHASH_IDLE; 
 		FSM_GHASH_LD_H:       fsm_gh_q <= ~sram_v_i & data_v_i ? FSM_GHASH_HASH_A: FSM_GHASH_LD_H; 
@@ -421,4 +422,8 @@ assign data_v_o     = ((fsm_gh_q == FSM_GHASH_RES) & gh_res_v) | (fsm_q == FSM_I
 assign data_start_o = 1'bx; 
 assign data_last_o  = tag_v & (tag_cnt_q == B_CNT_MAX_MIN1); 
 assign data_o       = res_next;
+
+// corrdinate with ctrl
+assign active_v_o      = (fsm_q != FSM_IDLE); 
+assign sending_tag_v_o = (fsm_q == FSM_ICV); 
 endmodule

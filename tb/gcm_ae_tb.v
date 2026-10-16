@@ -21,8 +21,6 @@ localparam PHY_W  = 2;
 wire clk;
 wire rst_n;
 
-wire              gcm_init;
- 
 wire              gcm_sram_v; 
 wire              gcm_sram_k; 
 wire              gcm_sram_h;
@@ -34,6 +32,10 @@ wire              gcm_rx_enc_early;
 wire [PHY_W-1:0]  gcm_rx;
 wire              gcm_rx_last; 
 wire              gcm_rx_first; 
+wire              gcm_rx_first_early_v; 
+
+wire              gcm_active; 
+wire              gcm_sending_tag; 
 
 wire              gcm_tx_v; 
 wire              gcm_tx_start; 
@@ -44,31 +46,33 @@ wire [31:0]       gcm_pn;
 wire [63:0]       gcm_sci; 
 
 gcm_ae m_gcm_ae(
-.clk             (clk), 
-.rst_n           (rst_n), 
+.clk                 (clk), 
+.rst_n               (rst_n), 
 
-.init_i          (gcm_init), 
+.sram_v_i            (gcm_sram_v),
+.sram_k_i            (gcm_sram_k),
+.sram_h_i            (gcm_sram_h),
+.sram_i              (gcm_sram),
 
-.sram_v_i        (gcm_sram_v),
-.sram_k_i        (gcm_sram_k),
-.sram_h_i        (gcm_sram_h),
-.sram_i          (gcm_sram),
-
-.data_v_i        (gcm_rx_v),
-.data_enc_early_i(gcm_rx_enc_early),
-.data_enc_i      (gcm_rx_enc),
-.data_i          (gcm_rx), 
-.data_first_i    (gcm_rx_first),
-.data_last_i     (gcm_rx_last),
+.data_v_i            (gcm_rx_v),
+.data_enc_early_i    (gcm_rx_enc_early),
+.data_enc_i          (gcm_rx_enc),
+.data_i              (gcm_rx), 
+.data_first_i        (gcm_rx_first),
+.data_first_early_v_i(gcm_rx_first_early_v),
+.data_last_i         (gcm_rx_last),
 
 
-.data_v_o        (gcm_tx_v),
-.data_start_o    (gcm_tx_start),
-.data_last_o     (gcm_tx_last),
-.data_o          (gcm_tx),
+.data_v_o             (gcm_tx_v),
+.data_start_o         (gcm_tx_start),
+.data_last_o          (gcm_tx_last),
+.data_o               (gcm_tx),
 
-.pn_i            (gcm_pn),
-.sci_i           (gcm_sci)
+.pn_i                 (gcm_pn),
+.sci_i                (gcm_sci),
+
+.active_v_o           (gcm_active), 
+.sending_tag_v_o      (gcm_sending_tag) 
 );
 
 endmodule
